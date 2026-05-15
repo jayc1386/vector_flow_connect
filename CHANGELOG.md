@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.1] — 2026-05-15
+
+Python-floor loosening for quant_hive compatibility.
+
+### Changed
+
+- `requires-python` lowered from `>=3.13` to `>=3.10`. The v0.1.0 floor
+  was inherited from prism's `pyproject.toml` without auditing actual
+  syntactic needs; the connector code uses only PEP 585 builtin
+  generics + `from __future__ import annotations` + `Protocol` +
+  `Literal` + `Any`, all valid on 3.10. No `Self` (3.11+),
+  `LiteralString` (3.11+), PEP 695 type-param syntax (3.12+),
+  `match`/`case` (3.10+ but unused), or `except*` (3.11+).
+- `tool.ruff.target-version` → `py310`.
+- `tool.pyright.pythonVersion` → `3.10`.
+- CI workflow tests against Python 3.10 to validate the floor.
+
+### Why
+
+quant_hive's `pyproject.toml` is `requires-python = ">=3.10"` (running
+3.10.12 in production). vectorbt + adjacent deps make bumping qh's
+Python non-trivial, so the lower-Python-bound is being met on the
+connectors side instead.
+
 ## [0.1.0] — 2026-05-15
 
 Initial release. Lifts vendor-API mechanics out of prism's adapters

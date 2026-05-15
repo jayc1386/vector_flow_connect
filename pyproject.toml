@@ -1,9 +1,9 @@
 [project]
 name = "vector-flow-connect"
-version = "0.1.0"
+version = "0.1.1"
 description = "Shared vendor-API connectors (shape coercion only) for prism + quant_hive"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 license = { file = "LICENSE" }
 dependencies = [
     "alpaca-py>=0.31",
@@ -28,7 +28,7 @@ packages = ["src/vector_flow_connect"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py313"
+target-version = "py310"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
@@ -55,7 +55,7 @@ docstring-code-format = true
 [tool.pyright]
 include = ["src", "tests"]
 exclude = ["**/__pycache__"]
-pythonVersion = "3.13"
+pythonVersion = "3.10"
 typeCheckingMode = "standard"
 reportMissingImports = "error"
 reportMissingTypeStubs = "warning"

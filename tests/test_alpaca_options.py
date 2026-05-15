@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -104,7 +104,7 @@ class TestAlpacaOptionsFetcherBars:
     def test_get_bars_pydantic_shape(self):
         occ_sym = "SPY240920C00450000"
         fake = FakeOptionBar(
-            timestamp=datetime(2024, 9, 20, tzinfo=UTC),
+            timestamp=datetime(2024, 9, 20, tzinfo=timezone.utc),
             open=5.5,
             high=6.0,
             low=5.25,
@@ -150,7 +150,7 @@ class TestFetchedOptionShapes:
 
         valid = FetchedOptionBar(
             symbol="SPY240920C00450000",
-            timestamp=datetime(2024, 9, 20, tzinfo=UTC),
+            timestamp=datetime(2024, 9, 20, tzinfo=timezone.utc),
             open=Decimal("1"),
             high=Decimal("1"),
             low=Decimal("1"),
@@ -171,7 +171,7 @@ class TestFetchChainBars:
         # Fake bars for one of the enumerated symbols.
         target_sym = generate_occ_symbol("SPY", date(2024, 9, 13), "C", Decimal("450"))
         fake_bar = FakeOptionBar(
-            timestamp=datetime(2024, 9, 12, tzinfo=UTC),
+            timestamp=datetime(2024, 9, 12, tzinfo=timezone.utc),
             open=5.0,
             high=5.5,
             low=4.9,

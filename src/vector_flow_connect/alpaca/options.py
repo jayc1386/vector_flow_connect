@@ -11,7 +11,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
@@ -150,8 +150,8 @@ class AlpacaOptionsFetcher:
             return []
         req = OptionBarsRequest(
             symbol_or_symbols=occ_symbols,
-            start=datetime(start.year, start.month, start.day, tzinfo=UTC),
-            end=datetime(end.year, end.month, end.day, 23, 59, 59, tzinfo=UTC),
+            start=datetime(start.year, start.month, start.day, tzinfo=timezone.utc),
+            end=datetime(end.year, end.month, end.day, 23, 59, 59, tzinfo=timezone.utc),
             timeframe=TimeFrame(amount=1, unit=TimeFrameUnit.Day),  # pyright: ignore[reportArgumentType]
         )
         barset = self._client.get_option_bars(req)

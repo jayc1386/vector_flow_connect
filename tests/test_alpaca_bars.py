@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -52,7 +52,7 @@ class TestAlpacaBarFetcher:
             {
                 "SPY": [
                     FakeBar(
-                        timestamp=datetime(2025, 1, 2, tzinfo=UTC),
+                        timestamp=datetime(2025, 1, 2, tzinfo=timezone.utc),
                         open=590.0,
                         high=595.5,
                         low=589.0,
@@ -67,7 +67,7 @@ class TestAlpacaBarFetcher:
 
         assert len(bars) == 1
         assert bars[0].symbol == "SPY"
-        assert bars[0].timestamp == datetime(2025, 1, 2, tzinfo=UTC)
+        assert bars[0].timestamp == datetime(2025, 1, 2, tzinfo=timezone.utc)
         assert bars[0].open == Decimal("590.0")
         assert bars[0].close == Decimal("594.25")
         assert bars[0].volume == Decimal("12345678")
@@ -77,7 +77,7 @@ class TestAlpacaBarFetcher:
         # Confirms the API contract doesn't silently accept unknown fields.
         bar = FetchedBar(
             symbol="SPY",
-            timestamp=datetime(2025, 1, 2, tzinfo=UTC),
+            timestamp=datetime(2025, 1, 2, tzinfo=timezone.utc),
             open=Decimal("1"),
             high=Decimal("1"),
             low=Decimal("1"),
@@ -95,7 +95,7 @@ class TestAlpacaBarFetcher:
             {
                 "SPY": [
                     FakeBar(
-                        timestamp=datetime(2025, 1, 2, tzinfo=UTC),
+                        timestamp=datetime(2025, 1, 2, tzinfo=timezone.utc),
                         open=590,
                         high=595,
                         low=589,
@@ -105,7 +105,7 @@ class TestAlpacaBarFetcher:
                 ],
                 "QQQ": [
                     FakeBar(
-                        timestamp=datetime(2025, 1, 2, tzinfo=UTC),
+                        timestamp=datetime(2025, 1, 2, tzinfo=timezone.utc),
                         open=520,
                         high=525,
                         low=519,
