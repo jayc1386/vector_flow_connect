@@ -27,13 +27,17 @@ from vector_flow_connect.alpaca.options import (
     FetchedOptionContract,
     fetch_chain_bars,
 )
-from vector_flow_connect.alpaca.settings import AlpacaCredentials
+from vector_flow_connect.alpaca.settings import (
+    AlpacaCredentials,
+    AlpacaTradingCredentials,
+)
 
 __all__ = [
     "AlpacaBarFetcher",
     "AlpacaCorpActionsFetcher",
     "AlpacaCredentials",
     "AlpacaOptionsFetcher",
+    "AlpacaTradingCredentials",
     "BarFetcher",
     "ChainBarsResult",
     "CorpActionsFetcher",

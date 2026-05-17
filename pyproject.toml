@@ -1,6 +1,6 @@
 [project]
 name = "vector-flow-connect"
-version = "0.1.1"
+version = "0.2.0"
 description = "Shared vendor-API connectors (shape coercion only) for prism + quant_hive"
 readme = "README.md"
 requires-python = ">=3.10"
