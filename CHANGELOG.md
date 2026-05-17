@@ -2,6 +2,57 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] — 2026-05-17
+
+Adds `declared_date` (dividend announcement date) to
+`FetchedCorpAction` via a sidecar call to Alpaca's deprecated
+trading-API announcements endpoint.
+
+### Added
+
+- `AlpacaTradingCredentials` in `vector_flow_connect.alpaca.settings`.
+  Optional augmentation for corp-actions fetchers. Distinct shape from
+  `AlpacaCredentials` because Alpaca's trading-API uses different keys
+  than its market-data API.
+- `FetchedCorpAction.declared_date: date | None = None` — populated
+  from the announcements sidecar when trading credentials are
+  provided; left None on every event otherwise.
+- `AlpacaCorpActionsFetcher.from_credentials(credentials,
+  trading_credentials=...)` keyword. When omitted, behaviour is
+  identical to v0.1.x.
+
+### Why
+
+Alpaca's market-data `/v1/corporate-actions` endpoint does NOT carry
+`declaration_date` on cash_dividend events (verified empirically
+2026-05-17 across 5 large-cap dividend payers). The only Alpaca
+surface that exposes the field is the trading-API
+`/v2/corporate_actions/announcements` endpoint, which alpaca-py
+marks as deprecated (redirecting users to the market-data endpoint
+that lacks the field — an unresolved Alpaca regression). This release
+accepts the deprecation risk to capture declaration_date while
+available; historical values written to canonical storage remain
+valid regardless of future endpoint changes.
+
+The sidecar pulls universe-wide announcements per ≤90-day chunk
+(the endpoint's documented cap), builds a
+`(initiating_symbol, ex_date) -> declaration_date` lookup, and
+attaches during normalisation. Universe-wide queries are cheaper
+than per-symbol fanout for typical multi-ticker ingest patterns;
+the data volume is small (~10k events/quarter).
+
+### Compatibility
+
+- Pure additive change to `FetchedCorpAction`; consumers that
+  constructed it positionally must verify their kwargs. The model
+  uses Pydantic kwarg-only construction so existing consumers should
+  be fine.
+- Consumers that don't pass `trading_credentials=` see identical
+  behaviour to v0.1.x (declared_date stays None on every event).
+- Fixes the stale `__version__ = "0.1.0"` in
+  `vector_flow_connect/__init__.py` — was out of sync with v0.1.1
+  in `pyproject.toml`.
+
 ## [0.1.1] — 2026-05-15
 
 Python-floor loosening for quant_hive compatibility.

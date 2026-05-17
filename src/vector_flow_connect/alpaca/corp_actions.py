@@ -15,17 +15,32 @@ Field mapping verified against Alpaca's live API (2026-05-14):
   whose CUSIP wasn't captured).
 - ReverseSplit carries `old_cusip` + `new_cusip` separately (a
   symbol-renaming event); both are preserved.
+
+`declared_date` augmentation (v0.2.0, verified 2026-05-17):
+- The market-data `/v1/corporate-actions` endpoint does NOT carry
+  `declaration_date` on cash_dividend events; the field is sourced
+  via a sidecar call to the trading-API
+  `/v2/corporate_actions/announcements` endpoint (deprecated by
+  alpaca-py but actively populating data — Alpaca regression
+  unresolved as of 2026-05). When `AlpacaTradingCredentials` is
+  provided, the fetcher pulls universe-wide announcements per
+  ≤90-day chunk and joins on `(initiating_symbol, ex_date)`. When
+  trading credentials are absent, `declared_date` stays None on every
+  event — the v0.1.x behavior, unchanged.
 """
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from vector_flow_connect.alpaca.settings import AlpacaCredentials
+from vector_flow_connect.alpaca.settings import (
+    AlpacaCredentials,
+    AlpacaTradingCredentials,
+)
 
 # Alpaca → prism event_type mapping. Mirrors the verified live API:
 # response payloads carry plural keys (`cash_dividends`,
@@ -33,6 +48,9 @@ from vector_flow_connect.alpaca.settings import AlpacaCredentials
 _DIVIDEND_KEYS = {"cash_dividends", "cash_dividend"}
 _FORWARD_SPLIT_KEYS = {"forward_splits", "forward_split"}
 _REVERSE_SPLIT_KEYS = {"reverse_splits", "reverse_split"}
+
+# Announcements endpoint enforces a 90-day window cap per call.
+_ANNOUNCEMENTS_CHUNK_DAYS = 90
 
 
 class FetchedCorpAction(BaseModel):
@@ -46,6 +64,7 @@ class FetchedCorpAction(BaseModel):
     event_type: Literal["dividend", "split"]
     ex_date: date
     process_date: date
+    declared_date: date | None = None
     record_date: date | None = None
     payable_date: date | None = None
     cash_amount: Decimal | None = None  # dividends only
@@ -62,20 +81,53 @@ class AlpacaCorpActionsFetcher:
     """Concrete `CorpActionsFetcher` backed by alpaca-py's
     `CorporateActionsClient`. Constructed via
     `AlpacaCorpActionsFetcher.from_credentials()`. The `alpaca-py`
-    import happens inside the constructor so unit tests using fakes
+    imports happen inside the constructor so unit tests using fakes
     don't pay the import cost or require live env vars.
+
+    When `trading_api_key` + `trading_api_secret` are provided, the
+    fetcher also constructs a `TradingClient` and uses it to source
+    `declared_date` from the (deprecated) announcements endpoint.
+    When omitted, `declared_date` is left None on every event.
     """
 
-    def __init__(self, *, api_key: str, api_secret: str) -> None:
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        api_secret: str,
+        trading_api_key: str | None = None,
+        trading_api_secret: str | None = None,
+        trading_paper: bool = True,
+    ) -> None:
         from alpaca.data.historical.corporate_actions import CorporateActionsClient
 
         self._client = CorporateActionsClient(api_key, api_secret)
+        self._trading_client: Any | None = None
+        if trading_api_key and trading_api_secret:
+            from alpaca.trading.client import TradingClient
+
+            self._trading_client = TradingClient(
+                trading_api_key, trading_api_secret, paper=trading_paper
+            )
 
     @classmethod
-    def from_credentials(cls, credentials: AlpacaCredentials) -> AlpacaCorpActionsFetcher:
+    def from_credentials(
+        cls,
+        credentials: AlpacaCredentials,
+        *,
+        trading_credentials: AlpacaTradingCredentials | None = None,
+    ) -> AlpacaCorpActionsFetcher:
+        if trading_credentials is None:
+            return cls(
+                api_key=credentials.api_key,
+                api_secret=credentials.secret_key,
+            )
         return cls(
             api_key=credentials.api_key,
             api_secret=credentials.secret_key,
+            trading_api_key=trading_credentials.api_key,
+            trading_api_secret=trading_credentials.secret_key,
+            trading_paper=trading_credentials.paper,
         )
 
     def get_corp_actions(
@@ -101,16 +153,69 @@ class AlpacaCorpActionsFetcher:
             end=end,
         )
         result = self._client.get_corporate_actions(req)
+
+        # Sidecar: pull declared_date from the announcements endpoint
+        # (universe-wide; the in-memory lookup is tiny and avoids
+        # per-symbol N+1 fanout). Only when trading creds were
+        # provided at construction.
+        declared_dates: dict[tuple[str, date], date] = {}
+        if self._trading_client is not None:
+            declared_dates = self._fetch_declared_dates(start=start, end=end)
+
         out: list[FetchedCorpAction] = []
         for ca_type_key, events in result.data.items():  # pyright: ignore[reportAttributeAccessIssue]
             event_type = _classify_alpaca_type(ca_type_key)
             if event_type is None:
                 continue
             for e in events:
-                fetched = _normalize_alpaca_event(e, event_type)
+                fetched = _normalize_alpaca_event(e, event_type, declared_dates=declared_dates)
                 if fetched is not None:
                     out.append(fetched)
         return out
+
+    def _fetch_declared_dates(self, *, start: date, end: date) -> dict[tuple[str, date], date]:
+        """Build a `(symbol, ex_date) -> declared_date` lookup by
+        chunking the [start, end] range at ≤90-day boundaries (the
+        announcements endpoint's documented cap) and pulling
+        universe-wide dividend + split announcements per chunk.
+
+        Empty `initiating_symbol` rows (stock dividends keyed on
+        `target_symbol`) are skipped — our v1 doesn't ingest stock
+        dividends from the market-data endpoint anyway, so there's
+        no row to augment.
+        """
+        from alpaca.trading.enums import (
+            CorporateActionDateType,
+            CorporateActionType,
+        )
+        from alpaca.trading.requests import GetCorporateAnnouncementsRequest
+
+        assert self._trading_client is not None
+
+        lookup: dict[tuple[str, date], date] = {}
+        chunk_size = timedelta(days=_ANNOUNCEMENTS_CHUNK_DAYS - 1)  # since/until inclusive
+        cursor = start
+        while cursor <= end:
+            chunk_end = min(cursor + chunk_size, end)
+            req = GetCorporateAnnouncementsRequest(
+                ca_types=[
+                    CorporateActionType.DIVIDEND,
+                    CorporateActionType.SPLIT,
+                ],
+                since=cursor,
+                until=chunk_end,
+                date_type=CorporateActionDateType.EX_DATE,
+            )
+            results = self._trading_client.get_corporate_announcements(req)
+            for r in results:
+                sym = getattr(r, "initiating_symbol", None) or None
+                ex = getattr(r, "ex_date", None)
+                dec = getattr(r, "declaration_date", None)
+                if not sym or ex is None or dec is None:
+                    continue
+                lookup[(sym, ex)] = dec
+            cursor = chunk_end + timedelta(days=1)
+        return lookup
 
 
 def _classify_alpaca_type(alpaca_type_key: str) -> Literal["dividend", "split"] | None:
@@ -122,7 +227,10 @@ def _classify_alpaca_type(alpaca_type_key: str) -> Literal["dividend", "split"] 
 
 
 def _normalize_alpaca_event(
-    event: Any, event_type: Literal["dividend", "split"]
+    event: Any,
+    event_type: Literal["dividend", "split"],
+    *,
+    declared_dates: dict[tuple[str, date], date] | None = None,
 ) -> FetchedCorpAction | None:
     """Convert an alpaca-py event object into our vendor-agnostic shape.
     Returns None if the event is malformed in a way we can't recover from.
@@ -131,6 +239,10 @@ def _normalize_alpaca_event(
     (`CashDividend`, `ForwardSplit`, `ReverseSplit`, etc.) share field
     names but no common base class with full type info; we duck-type
     against the documented field surface.
+
+    `declared_dates` is the optional `(symbol, ex_date) -> declared_date`
+    lookup built by `AlpacaCorpActionsFetcher._fetch_declared_dates`.
+    Empty/absent dict → `declared_date=None` on every event.
     """
     try:
         symbol = str(event.symbol)
@@ -139,6 +251,9 @@ def _normalize_alpaca_event(
         process_date_val = event.process_date
         record_date_val = getattr(event, "record_date", None)
         payable_date_val = getattr(event, "payable_date", None)
+        declared_date_val: date | None = None
+        if declared_dates:
+            declared_date_val = declared_dates.get((symbol, ex_date_val))
 
         # Dividends + ForwardSplit have a single `cusip`. ReverseSplit
         # carries `old_cusip` + `new_cusip` separately (a symbol-renaming
@@ -156,6 +271,7 @@ def _normalize_alpaca_event(
                 event_type="dividend",
                 ex_date=ex_date_val,
                 process_date=process_date_val,
+                declared_date=declared_date_val,
                 record_date=record_date_val,
                 payable_date=payable_date_val,
                 cash_amount=Decimal(str(rate)),
@@ -173,6 +289,7 @@ def _normalize_alpaca_event(
             event_type="split",
             ex_date=ex_date_val,
             process_date=process_date_val,
+            declared_date=declared_date_val,
             record_date=record_date_val,
             payable_date=payable_date_val,
             split_ratio_from=Decimal(str(old_rate)),
