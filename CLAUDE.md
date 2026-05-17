@@ -43,6 +43,28 @@ consumer absorb it.
 
 ## Releases
 
+**Shipped:**
+
+- **v0.2.0** (2026-05-17, SHA `599ea7f8`) — adds
+  `AlpacaTradingCredentials` + `FetchedCorpAction.declared_date` +
+  a sidecar call to Alpaca's deprecated trading-API
+  `/v2/corporate_actions/announcements` endpoint (the only Alpaca
+  surface that still exposes the announcement date — the
+  market-data corp-actions endpoint dropped it in an unresolved
+  regression). `AlpacaCorpActionsFetcher.from_credentials` gains
+  an optional `trading_credentials=` kwarg; absent → identical
+  v0.1.x behaviour (`declared_date` stays None). Sidecar chunks at
+  ≤90-day boundaries (the announcements endpoint's documented
+  cap), pulls universe-wide per chunk, joins on `(initiating_symbol,
+  ex_date)`. Both prism (plan 0026) and qh (commit `f94b59a`)
+  pinned the SHA on the same day.
+- **v0.1.1** (2026-05-15, SHA `74ad64d0`) — Python-floor loosen
+  `>=3.13` → `>=3.10` for quant_hive parity. No code change.
+- **v0.1.0** (2026-05-15, SHA `7a60f699`) — initial release.
+  Lifted `Alpaca{Bar,Options,CorpActions}Fetcher` + Pydantic models
+  + Protocols + OCC helpers + `fetch_chain_bars` primitive out of
+  prism's adapters per quant_hive's `connectors_handoff.md`.
+
 SemVer. Patch for bugfixes, minor for additive surface (new fetcher,
 new method, new Protocol), major for breaking. Both consumers pin by
 SHA, so:
@@ -111,8 +133,13 @@ than floor toward negative infinity, which silently misses one strike
 at the upper boundary. Same pattern for any future "subtle math" case:
 write a regression-targeted test before fixing.
 
-Live smoke is deferred to v0.2.0. Gate behind `VFC_LIVE_ALPACA=1` env,
-use a paper account, run nightly.
+Live smoke ran ad-hoc against paper Alpaca during the v0.2.0
+declared_date sidecar verification (AAPL 2024 quarterly dividends
+4/4 populated; SPY 2024-12-20 → `declared_date=2024-12-18`). A
+gated `VFC_LIVE_ALPACA=1` nightly smoke is still deferred — would
+be useful for catching upstream-shape drift on the deprecated
+announcements endpoint, where alpaca-py's redirect-to-the-other-
+endpoint deprecation warning hints at eventual removal.
 
 ## Don't add abstractions ahead of demand
 
