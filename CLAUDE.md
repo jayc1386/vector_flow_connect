@@ -45,6 +45,19 @@ consumer absorb it.
 
 **Shipped:**
 
+- **v0.3.0** (2026-05-19, SHA `<TBD on tag>`) — adds
+  `AlpacaPositionsFetcher` + `FetchedPosition` model + `PositionsFetcher`
+  Protocol. Wraps alpaca-py's `TradingClient.get_all_positions()` +
+  `get_account()`. Two-method surface: snapshot all open positions,
+  read the broker's stable `account_number`. Single round trip per
+  call — no pagination, no chunking. Reuses v0.2.0's
+  `AlpacaTradingCredentials` shape (same paper-tier key works for
+  both data + trading endpoints with `paper=True`). prism plan 0030
+  consumes via a new adapter shell populating
+  `positions.broker_positions_raw` on a daily 21:00 UTC schedule;
+  qh consumption deferred. Account-level data (cash, equity,
+  buying_power) intentionally deferred — prism gets `cash` from qh's
+  inbox channel already.
 - **v0.2.0** (2026-05-17, SHA `599ea7f8`) — adds
   `AlpacaTradingCredentials` + `FetchedCorpAction.declared_date` +
   a sidecar call to Alpaca's deprecated trading-API

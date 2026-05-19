@@ -2,6 +2,60 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] — 2026-05-19
+
+Adds `AlpacaPositionsFetcher` for the broker-of-record snapshot
+prism's reconciliation engine needs as its third diff source.
+
+### Added
+
+- `FetchedPosition` Pydantic model in
+  `vector_flow_connect.alpaca.positions` — vendor-agnostic shape for
+  one open position. Fields: `symbol`, `qty` (signed Decimal),
+  `side` (`'long' | 'short'`), `avg_entry_price`, `market_value`
+  (nullable), `cost_basis`, `unrealized_pl` (nullable), `asset_class`.
+  Frozen + `extra='forbid'` per package convention.
+- `PositionsFetcher` Protocol in `vector_flow_connect.alpaca._base`
+  with two methods: `get_positions() -> list[FetchedPosition]` and
+  `get_account_number() -> str`. Vendor-neutral contract.
+- `AlpacaPositionsFetcher` in `vector_flow_connect.alpaca.positions`
+  — concrete `PositionsFetcher` backed by alpaca-py's `TradingClient`.
+  Constructed via `AlpacaPositionsFetcher.from_credentials(creds)`
+  taking an `AlpacaTradingCredentials` (the same model v0.2.0
+  introduced for the corp-actions sidecar).
+
+### Why
+
+prism plan 0028 (shipped 2026-05-19) landed the three-view
+reconciliation engine (fills vs holdings vs broker-positions) but
+deferred the live broker pull — the fixture-driven acceptance test
+injects rows directly into `positions.broker_positions_raw`. Closing
+that gap requires a vfc-side fetcher so the adapter shell that
+populates the table follows the same shape as the bars / corp-actions
+/ options paths.
+
+`get_all_positions()` returns the whole account snapshot in one
+response — no chunking, no pagination, no symbol-list parameter. The
+fetcher mirrors that: one method, one round trip. `get_account_number()`
+exposes the broker's stable account identifier so the consumer can
+write it as the `account_id` field on bitemporal position tables
+(rather than a literal placeholder).
+
+Account-level data (cash, equity, buying_power) deferred to a future
+release — prism's strict-FoF reconciliation invariant already gets
+`cash` from quant_hive's emit channel, so v0.3.0 doesn't need to
+duplicate.
+
+### Compatibility
+
+- Pure additive surface. Existing fetchers + Protocols + models
+  unchanged. Adding a new Protocol class is minor-bump-safe (no
+  existing consumer fakes implement `PositionsFetcher`, so no break).
+- `alpaca-py>=0.31` already ships `TradingClient.get_all_positions()`
+  + `get_account()`; no dep-floor bump.
+- Both `paper=True` (default) and `paper=False` routes accepted.
+  Same paper credentials work as for the v0.2.0 announcements sidecar.
+
 ## [0.2.0] — 2026-05-17
 
 Adds `declared_date` (dividend announcement date) to

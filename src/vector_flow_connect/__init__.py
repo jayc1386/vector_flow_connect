@@ -5,4 +5,4 @@ consumer (prism's `Adapter` ABC, quant_hive's `BarSource` /
 `OptionsSource` Protocols).
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
