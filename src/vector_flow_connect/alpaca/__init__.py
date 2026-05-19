@@ -8,6 +8,7 @@ from vector_flow_connect.alpaca._base import (
     BarFetcher,
     CorpActionsFetcher,
     OptionsFetcher,
+    PositionsFetcher,
 )
 from vector_flow_connect.alpaca.bars import AlpacaBarFetcher, FetchedBar
 from vector_flow_connect.alpaca.corp_actions import (
@@ -27,6 +28,10 @@ from vector_flow_connect.alpaca.options import (
     FetchedOptionContract,
     fetch_chain_bars,
 )
+from vector_flow_connect.alpaca.positions import (
+    AlpacaPositionsFetcher,
+    FetchedPosition,
+)
 from vector_flow_connect.alpaca.settings import (
     AlpacaCredentials,
     AlpacaTradingCredentials,
@@ -37,6 +42,7 @@ __all__ = [
     "AlpacaCorpActionsFetcher",
     "AlpacaCredentials",
     "AlpacaOptionsFetcher",
+    "AlpacaPositionsFetcher",
     "AlpacaTradingCredentials",
     "BarFetcher",
     "ChainBarsResult",
@@ -45,7 +51,9 @@ __all__ = [
     "FetchedCorpAction",
     "FetchedOptionBar",
     "FetchedOptionContract",
+    "FetchedPosition",
     "OptionsFetcher",
+    "PositionsFetcher",
     "fetch_chain_bars",
     "friday_expirations",
     "generate_occ_symbol",

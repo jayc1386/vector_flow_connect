@@ -22,6 +22,7 @@ if TYPE_CHECKING:
         FetchedOptionBar,
         FetchedOptionContract,
     )
+    from vector_flow_connect.alpaca.positions import FetchedPosition
 
 
 class BarFetcher(Protocol):
@@ -100,5 +101,36 @@ class CorpActionsFetcher(Protocol):
         - Return empty list on zero events; never raise on "no data."
         - Raise on auth / rate-limit / network failure so the caller
           can mark the corresponding ingest request as `failed`.
+        """
+        ...
+
+
+class PositionsFetcher(Protocol):
+    """Read-side contract: snapshot the broker's current open positions.
+
+    Concrete implementations:
+    - `AlpacaPositionsFetcher` — wraps alpaca-py's `TradingClient`.
+    - Test-only fakes — return canned positions + account number.
+
+    Future: `SchwabPositionsFetcher`, `IBKRPositionsFetcher` when
+    multi-broker support lands.
+    """
+
+    def get_positions(self) -> list[FetchedPosition]:
+        """Return the account's current open positions.
+
+        Implementations should:
+        - Return empty list when the account has no positions;
+          never raise on "no data."
+        - Raise on auth / rate-limit / network failure so the caller
+          can mark the corresponding ingest as `failed`.
+        """
+        ...
+
+    def get_account_number(self) -> str:
+        """Return the broker's stable account identifier.
+
+        Used by the consumer as the `account_id` write-key on bitemporal
+        position tables. Format is broker-specific (Alpaca: `'PA3...'`).
         """
         ...
