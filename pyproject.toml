@@ -1,6 +1,6 @@
 [project]
 name = "vector-flow-connect"
-version = "0.3.0"
+version = "0.4.0"
 description = "Shared vendor-API connectors (shape coercion only) for prism + quant_hive"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -9,6 +9,14 @@ dependencies = [
     "alpaca-py>=0.31",
     "pydantic>=2.10",
     "pandas>=2.2",
+    # v0.4.0 — AMAC private-fund registry scraper subpackage
+    # (`vector_flow_connect.amac`). `httpx` powers the JSON list-page
+    # client; `playwright` powers the Chromium-driven detail fetcher;
+    # `pyarrow` is the parquet sink used by the bulk crawler's merge
+    # step.
+    "httpx>=0.27",
+    "playwright>=1.40",
+    "pyarrow>=15",
 ]
 
 [dependency-groups]
@@ -49,6 +57,15 @@ ignore = [
     "E501",  # line length handled by formatter
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# v0.4.0 — the AMAC subpackage parses Chinese 私募-fund HTML which
+# uses fullwidth characters (：, （, ）, ×) that are SEMANTICALLY
+# DISTINCT from their ASCII counterparts. RUF001/002/003 flag them
+# as ambiguous; in this module they're intentional and load-bearing
+# (parser logic matches the exact characters AMAC emits).
+"src/vector_flow_connect/amac/*" = ["RUF001", "RUF002", "RUF003"]
+"tests/amac/*" = ["RUF001", "RUF002", "RUF003"]
+
 [tool.ruff.format]
 docstring-code-format = true
 
@@ -59,6 +76,23 @@ pythonVersion = "3.10"
 typeCheckingMode = "standard"
 reportMissingImports = "error"
 reportMissingTypeStubs = "warning"
+
+# v0.4.0 — the AMAC subpackage's `AMACRecord` TypedDict declares
+# `total=False` (all fields optional) which surfaces
+# `reportTypedDictNotRequiredAccess` warnings at every key access.
+# Tests use dict literals against the TypedDict which trips
+# `reportArgumentType`. Relaxing here keeps the lift faithful per
+# `PRISM_HANDOFF.md §8` "Don't refactor during the move."
+[[tool.pyright.executionEnvironments]]
+root = "src/vector_flow_connect/amac"
+reportTypedDictNotRequiredAccess = "none"
+reportArgumentType = "warning"
+
+[[tool.pyright.executionEnvironments]]
+root = "tests/amac"
+reportTypedDictNotRequiredAccess = "none"
+reportArgumentType = "warning"
+reportOptionalMemberAccess = "warning"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
