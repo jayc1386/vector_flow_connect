@@ -2,6 +2,71 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] — 2026-05-21
+
+Adds the AMAC private-fund registry scraper as a subpackage
+(`vector_flow_connect.amac`), lifted from `prism/src/prism/amac/`
+per the prism-vfc separation-of-concerns rule
+(`PRISM_HANDOFF.md §3+§5`). No behavioural change vs the prism
+v0.1.0 lift — the bug being fixed is *location*, not shape.
+
+### Added
+
+- `vector_flow_connect.amac` subpackage (11 modules + 10 test
+  files + 2 fixtures, lifted verbatim from
+  `prism/src/prism/amac/`). Mechanical `prism.amac` →
+  `vector_flow_connect.amac` rewrite; `from datetime import UTC`
+  rewritten to `from datetime import timezone` + `timezone.utc`
+  uses for Python 3.10 floor compatibility.
+- Public surface: `BrowserClient` (Playwright/Chromium detail
+  fetcher), `crawl_bulk(*, headed, resume, ...)` (the full
+  registry crawl entry point), `crawl_incremental(*,
+  seen_fund_nos, max_pages, ...)` (resume-from-state +
+  stop-marker incremental crawl), `merge_batches(batches_dir,
+  index_path)` (parquet batch consolidation), `AMACClient`
+  (httpx-based JSON list-page client), `search_by_name`
+  (lookup-by-name helper), `AMACRecord` TypedDict + the schema
+  module's `COLUMN_ORDER`, `PARQUET_SCHEMA`, `SCHEMA_VERSION`,
+  `SOURCE_ID` constants.
+- Runtime deps: `httpx>=0.27`, `playwright>=1.40`,
+  `pyarrow>=15`. Chromium binary install required for live
+  crawls — operators run `uv run playwright install chromium`
+  once.
+
+### Why
+
+Plan 0037 (prism) lifted the AMAC scraper into
+`prism/src/prism/amac/` as a root-level subpackage. On post-ship
+review, this surfaced as a separation-of-concerns drift from
+`PRISM_HANDOFF.md §3+§5`, which directs DKU-side scraper
+graduations to vfc (the shared mechanics layer for prism +
+quant_hive), not into prism directly. The binding split-rule
+codified on the dkup ↔ prism relay (2026-05-21T01:40Z):
+
+- Scraper-shape (network IO + parsing + retry + state, no
+  Postgres `Connection` ever crossing the module boundary) →
+  vfc.
+- Adapter-shell-shape (holds the `Connection`, writes through
+  canonical state, emits audit events, resolves tenant) → prism.
+- Canonical schemas + Alembic migrations → prism.
+
+The AMAC scraper is unambiguously scraper-shape: 11 files of
+Playwright + httpx + parse + state + retry, with no Connection
+ever crossing. Plan 0037.1 corrects the drift by relocating the
+module here.
+
+### Compatibility
+
+- Pure additive surface. Existing `vector_flow_connect.alpaca.*`
+  fetchers + Protocols + models unchanged.
+- Adds `httpx`, `playwright`, `pyarrow` to runtime deps. Existing
+  consumers that don't import `vector_flow_connect.amac` pay an
+  install cost on `uv sync` but pay zero import cost.
+- Python floor stays at `>=3.10`. The lifted module's two
+  3.11-only imports (`from datetime import UTC`) were
+  mechanically rewritten to 3.10-compatible `timezone.utc`
+  during the lift. quant_hive's v0.3.0 pin remains valid.
+
 ## [0.3.0] — 2026-05-19
 
 Adds `AlpacaPositionsFetcher` for the broker-of-record snapshot
