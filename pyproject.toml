@@ -1,6 +1,6 @@
 [project]
 name = "vector-flow-connect"
-version = "0.4.0"
+version = "0.5.0"
 description = "Shared vendor-API connectors (shape coercion only) for prism + quant_hive"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -17,6 +17,15 @@ dependencies = [
     "httpx>=0.27",
     "playwright>=1.40",
     "pyarrow>=15",
+    # v0.5.0 — DKU PDF extractor subpackage (`vector_flow_connect.pdf`).
+    # `anthropic` is the LLM client (Sonnet tool-use); `pdfplumber` does
+    # text-layer extraction for multifund detection + audit; `pypdfium2`
+    # + `Pillow` render PDF pages to JPEG for vision-input. Lifted from
+    # dkup by plan 0038 per the binding prism-vfc split-rule.
+    "anthropic>=0.40",
+    "pdfplumber>=0.11",
+    "pypdfium2>=4.30",
+    "Pillow>=10",
 ]
 
 [dependency-groups]
@@ -65,6 +74,11 @@ ignore = [
 # (parser logic matches the exact characters AMAC emits).
 "src/vector_flow_connect/amac/*" = ["RUF001", "RUF002", "RUF003"]
 "tests/amac/*" = ["RUF001", "RUF002", "RUF003"]
+# v0.5.0 — the PDF subpackage's prompts + parser logic match exact
+# Chinese characters in 私募 fund-manager monthly PDFs; same
+# load-bearing-fullwidth-char reasoning as AMAC.
+"src/vector_flow_connect/pdf/*" = ["RUF001", "RUF002", "RUF003"]
+"tests/pdf/*" = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -93,6 +107,33 @@ root = "tests/amac"
 reportTypedDictNotRequiredAccess = "none"
 reportArgumentType = "warning"
 reportOptionalMemberAccess = "warning"
+
+# v0.5.0 — the PDF subpackage relies heavily on pandas + pdfplumber +
+# pypdfium2 + anthropic SDK objects whose stubs either don't exist or
+# are loose around dynamic attribute access. The lifted code is
+# behavior-verified by the test suite (lifted from dkup); pyright noise
+# here is type-stub fidelity, not logic correctness. Relax in the same
+# spirit as the AMAC overrides — matches `PRISM_HANDOFF.md §8` "Don't
+# refactor during the move."
+[[tool.pyright.executionEnvironments]]
+root = "src/vector_flow_connect/pdf"
+reportAttributeAccessIssue = "warning"
+reportArgumentType = "warning"
+reportCallIssue = "warning"
+reportReturnType = "warning"
+reportOperatorIssue = "warning"
+reportOptionalOperand = "warning"
+reportMissingTypeStubs = "none"
+
+[[tool.pyright.executionEnvironments]]
+root = "tests/pdf"
+reportAttributeAccessIssue = "warning"
+reportArgumentType = "warning"
+reportCallIssue = "warning"
+reportReturnType = "warning"
+reportOperatorIssue = "warning"
+reportOptionalOperand = "warning"
+reportMissingTypeStubs = "none"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
