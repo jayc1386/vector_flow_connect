@@ -1,9 +1,11 @@
 """Canonical helpers for the PDF extractor.
 
 Re-exports the source-agnostic ID/dataclass helpers from
-`_inherited_canonical` (the master_record canonical fields the PDF
-extractor depends on, copied into vfc as a self-contained sibling
-module per plan 0038 Phase A — see `_inherited_canonical.py`).
+`vector_flow_connect.master_record.canonical`, which OWNS the
+shared dkup-canonical column lists + deterministic ID hashers used
+by both the PDF extractor and the workbook extractor. Plan 0038's
+`_inherited_canonical.py` shim was retired by plan 0039 when
+master_record graduated to vfc.
 
 Defines its own `SCHEMA_VERSION` / `SOURCE_ID` — a separate version
 axis from master_record so each source's re-extracts don't churn the
@@ -12,7 +14,7 @@ other's provenance.
 
 from __future__ import annotations
 
-from ._inherited_canonical import (  # noqa: F401
+from vector_flow_connect.master_record.canonical import (  # noqa: F401
     EVENT_COLUMNS,
     FUND_COLUMNS,
     LOT_COLUMNS,

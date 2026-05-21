@@ -1,6 +1,6 @@
 [project]
 name = "vector-flow-connect"
-version = "0.5.0"
+version = "0.6.0"
 description = "Shared vendor-API connectors (shape coercion only) for prism + quant_hive"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,6 +26,11 @@ dependencies = [
     "pdfplumber>=0.11",
     "pypdfium2>=4.30",
     "Pillow>=10",
+    # v0.6.0 — DKU master_record workbook extractor subpackage
+    # (`vector_flow_connect.master_record`). `openpyxl` reads the source
+    # workbook. Lifted from dkup by plan 0039 per the binding
+    # prism-vfc split-rule.
+    "openpyxl>=3.1",
 ]
 
 [dependency-groups]
@@ -79,6 +84,13 @@ ignore = [
 # load-bearing-fullwidth-char reasoning as AMAC.
 "src/vector_flow_connect/pdf/*" = ["RUF001", "RUF002", "RUF003"]
 "tests/pdf/*" = ["RUF001", "RUF002", "RUF003"]
+# v0.6.0 — the master_record subpackage parses DKU's Chinese workbook
+# (snapshot sheets, notes columns, the proposed 事件流水 events log);
+# Chinese characters in sheet titles, header matchers, event-type
+# labels, and notes regex patterns are load-bearing. Same reasoning
+# as AMAC + PDF.
+"src/vector_flow_connect/master_record/*" = ["RUF001", "RUF002", "RUF003"]
+"tests/master_record/*" = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -133,6 +145,32 @@ reportCallIssue = "warning"
 reportReturnType = "warning"
 reportOperatorIssue = "warning"
 reportOptionalOperand = "warning"
+reportMissingTypeStubs = "none"
+
+# v0.6.0 — the master_record subpackage leans on pandas + openpyxl
+# whose stubs are loose around dynamic attribute access (Worksheet
+# cell iteration, DataFrame column-assignment, etc.). Same
+# behavior-verified-by-tests reasoning as AMAC + PDF.
+[[tool.pyright.executionEnvironments]]
+root = "src/vector_flow_connect/master_record"
+reportAttributeAccessIssue = "warning"
+reportArgumentType = "warning"
+reportCallIssue = "warning"
+reportReturnType = "warning"
+reportOperatorIssue = "warning"
+reportOptionalOperand = "warning"
+reportOptionalMemberAccess = "warning"
+reportMissingTypeStubs = "none"
+
+[[tool.pyright.executionEnvironments]]
+root = "tests/master_record"
+reportAttributeAccessIssue = "warning"
+reportArgumentType = "warning"
+reportCallIssue = "warning"
+reportReturnType = "warning"
+reportOperatorIssue = "warning"
+reportOptionalOperand = "warning"
+reportOptionalMemberAccess = "warning"
 reportMissingTypeStubs = "none"
 
 [tool.pytest.ini_options]
