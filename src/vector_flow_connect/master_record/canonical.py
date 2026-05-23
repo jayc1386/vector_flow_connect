@@ -1,27 +1,6 @@
-"""Canonical-schema helpers inherited from dkup's master_record module.
+"""Canonical schema + deterministic ID hashing for master-record events.
 
-The PDF extractor and the (future) DKU master_record extractor share a
-small set of canonical column lists + deterministic ID hashers so that
-events produced from PDFs and from workbooks can dedup against each
-other. In dkup, these live in `src/dku/extraction/master_record/canonical.py`
-and the PDF module imports them as `from ..master_record.canonical
-import …`.
-
-Plan 0038 lifts the PDF extractor to `vector_flow_connect.pdf` without
-graduating master_record (that's plan 0039+). To keep this Phase A
-lift self-contained, we copy the master_record canonical fields the
-PDF module depends on into this private sibling module. When
-master_record graduates to vfc later, this module either:
-  (a) gets superseded by a shared `vector_flow_connect._dku_canonical`
-      module that both subpackages import from, OR
-  (b) stays as-is and the master_record adapter pulls from its own
-      identical module — whichever costs less at the time.
-
-**This module is private to `vector_flow_connect.pdf` (leading
-underscore) and should not be imported by external consumers.** The
-public `vector_flow_connect.pdf.canonical` re-exports a curated subset.
-
-Pure-Python; no I/O.
+Pure-Python; no I/O. Tested via tests/extraction/test_canonical.py.
 """
 
 from __future__ import annotations
@@ -197,9 +176,8 @@ def lot_id(fund_id: str, subscription_date: date, cost_amount: float) -> str:
 def fund_id_stub(source_fund_string: str) -> str:
     """Stub canonical fund ID = normalized source string.
 
-    Real UUID assignment + Wind-code mapping is deferred to the
-    consumer (prism's lazy-mint path into `reference.securities`
-    in plan 0039+).
+    Real UUID assignment + Wind-code mapping is deferred — see
+    DEFERRED.md [identity] items.
     """
     normalized = (source_fund_string or "").strip()
     return "fnd_" + _short_hash(normalized)
