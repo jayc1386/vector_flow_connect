@@ -1,0 +1,633 @@
+{
+  "payload": {
+    "fund_name_zh": "睿远基金睿见1号集合资产管理计划",
+    "fund_code": null,
+    "report_period_end": "2026-04-30",
+    "inception_date": "2018-12-10",
+    "nav_per_unit": 2.7578,
+    "since_inception_return_pct": 175.78,
+    "monthly_returns": [
+      {
+        "year": 2018,
+        "month": 12,
+        "return_pct": 0.12
+      },
+      {
+        "year": 2019,
+        "month": 1,
+        "return_pct": 1.43
+      },
+      {
+        "year": 2019,
+        "month": 2,
+        "return_pct": 4.87
+      },
+      {
+        "year": 2019,
+        "month": 3,
+        "return_pct": 3.08
+      },
+      {
+        "year": 2019,
+        "month": 4,
+        "return_pct": 1.71
+      },
+      {
+        "year": 2019,
+        "month": 5,
+        "return_pct": -4.87
+      },
+      {
+        "year": 2019,
+        "month": 6,
+        "return_pct": 4.65
+      },
+      {
+        "year": 2019,
+        "month": 7,
+        "return_pct": 0.82
+      },
+      {
+        "year": 2019,
+        "month": 8,
+        "return_pct": -0.03
+      },
+      {
+        "year": 2019,
+        "month": 9,
+        "return_pct": 2.15
+      },
+      {
+        "year": 2019,
+        "month": 10,
+        "return_pct": 1.35
+      },
+      {
+        "year": 2019,
+        "month": 11,
+        "return_pct": -1.53
+      },
+      {
+        "year": 2019,
+        "month": 12,
+        "return_pct": 5.78
+      },
+      {
+        "year": 2020,
+        "month": 1,
+        "return_pct": 0.44
+      },
+      {
+        "year": 2020,
+        "month": 2,
+        "return_pct": 0.7
+      },
+      {
+        "year": 2020,
+        "month": 3,
+        "return_pct": -7.36
+      },
+      {
+        "year": 2020,
+        "month": 4,
+        "return_pct": 5.45
+      },
+      {
+        "year": 2020,
+        "month": 5,
+        "return_pct": 2.86
+      },
+      {
+        "year": 2020,
+        "month": 6,
+        "return_pct": 8.4
+      },
+      {
+        "year": 2020,
+        "month": 7,
+        "return_pct": 15.36
+      },
+      {
+        "year": 2020,
+        "month": 8,
+        "return_pct": -6.75
+      },
+      {
+        "year": 2020,
+        "month": 9,
+        "return_pct": -4.61
+      },
+      {
+        "year": 2020,
+        "month": 10,
+        "return_pct": 2.3
+      },
+      {
+        "year": 2020,
+        "month": 11,
+        "return_pct": 11.41
+      },
+      {
+        "year": 2020,
+        "month": 12,
+        "return_pct": 6.17
+      },
+      {
+        "year": 2021,
+        "month": 1,
+        "return_pct": 1.97
+      },
+      {
+        "year": 2021,
+        "month": 2,
+        "return_pct": 1.64
+      },
+      {
+        "year": 2021,
+        "month": 3,
+        "return_pct": -1.67
+      },
+      {
+        "year": 2021,
+        "month": 4,
+        "return_pct": 1.81
+      },
+      {
+        "year": 2021,
+        "month": 5,
+        "return_pct": 3.97
+      },
+      {
+        "year": 2021,
+        "month": 6,
+        "return_pct": -0.23
+      },
+      {
+        "year": 2021,
+        "month": 7,
+        "return_pct": -4.9
+      },
+      {
+        "year": 2021,
+        "month": 8,
+        "return_pct": 1.22
+      },
+      {
+        "year": 2021,
+        "month": 9,
+        "return_pct": -4.84
+      },
+      {
+        "year": 2021,
+        "month": 10,
+        "return_pct": 1.77
+      },
+      {
+        "year": 2021,
+        "month": 11,
+        "return_pct": -1.4
+      },
+      {
+        "year": 2021,
+        "month": 12,
+        "return_pct": -0.4
+      },
+      {
+        "year": 2022,
+        "month": 1,
+        "return_pct": 5.19
+      },
+      {
+        "year": 2022,
+        "month": 2,
+        "return_pct": -2.01
+      },
+      {
+        "year": 2022,
+        "month": 3,
+        "return_pct": -0.85
+      },
+      {
+        "year": 2022,
+        "month": 4,
+        "return_pct": -1.57
+      },
+      {
+        "year": 2022,
+        "month": 5,
+        "return_pct": 3.4
+      },
+      {
+        "year": 2022,
+        "month": 6,
+        "return_pct": 7.59
+      },
+      {
+        "year": 2022,
+        "month": 7,
+        "return_pct": -3.75
+      },
+      {
+        "year": 2022,
+        "month": 8,
+        "return_pct": 0.72
+      },
+      {
+        "year": 2022,
+        "month": 9,
+        "return_pct": -7.63
+      },
+      {
+        "year": 2022,
+        "month": 10,
+        "return_pct": -7.48
+      },
+      {
+        "year": 2022,
+        "month": 11,
+        "return_pct": 13.23
+      },
+      {
+        "year": 2022,
+        "month": 12,
+        "return_pct": 0.11
+      },
+      {
+        "year": 2023,
+        "month": 1,
+        "return_pct": 6.26
+      },
+      {
+        "year": 2023,
+        "month": 2,
+        "return_pct": -2.0
+      },
+      {
+        "year": 2023,
+        "month": 3,
+        "return_pct": 1.26
+      },
+      {
+        "year": 2023,
+        "month": 4,
+        "return_pct": 0.13
+      },
+      {
+        "year": 2023,
+        "month": 5,
+        "return_pct": -6.43
+      },
+      {
+        "year": 2023,
+        "month": 6,
+        "return_pct": 3.2
+      },
+      {
+        "year": 2023,
+        "month": 7,
+        "return_pct": 9.53
+      },
+      {
+        "year": 2023,
+        "month": 8,
+        "return_pct": -2.75
+      },
+      {
+        "year": 2023,
+        "month": 9,
+        "return_pct": -3.13
+      },
+      {
+        "year": 2023,
+        "month": 10,
+        "return_pct": -3.28
+      },
+      {
+        "year": 2023,
+        "month": 11,
+        "return_pct": 0.19
+      },
+      {
+        "year": 2023,
+        "month": 12,
+        "return_pct": -2.44
+      },
+      {
+        "year": 2024,
+        "month": 1,
+        "return_pct": -6.02
+      },
+      {
+        "year": 2024,
+        "month": 2,
+        "return_pct": 7.12
+      },
+      {
+        "year": 2024,
+        "month": 3,
+        "return_pct": 3.86
+      },
+      {
+        "year": 2024,
+        "month": 4,
+        "return_pct": 7.36
+      },
+      {
+        "year": 2024,
+        "month": 5,
+        "return_pct": 3.07
+      },
+      {
+        "year": 2024,
+        "month": 6,
+        "return_pct": -1.84
+      },
+      {
+        "year": 2024,
+        "month": 7,
+        "return_pct": -2.25
+      },
+      {
+        "year": 2024,
+        "month": 8,
+        "return_pct": 2.23
+      },
+      {
+        "year": 2024,
+        "month": 9,
+        "return_pct": 16.93
+      },
+      {
+        "year": 2024,
+        "month": 10,
+        "return_pct": -2.22
+      },
+      {
+        "year": 2024,
+        "month": 11,
+        "return_pct": -0.61
+      },
+      {
+        "year": 2024,
+        "month": 12,
+        "return_pct": 5.58
+      },
+      {
+        "year": 2025,
+        "month": 1,
+        "return_pct": -1.23
+      },
+      {
+        "year": 2025,
+        "month": 2,
+        "return_pct": 16.16
+      },
+      {
+        "year": 2025,
+        "month": 3,
+        "return_pct": -0.35
+      },
+      {
+        "year": 2025,
+        "month": 4,
+        "return_pct": -2.98
+      },
+      {
+        "year": 2025,
+        "month": 5,
+        "return_pct": 3.72
+      },
+      {
+        "year": 2025,
+        "month": 6,
+        "return_pct": 5.27
+      },
+      {
+        "year": 2025,
+        "month": 7,
+        "return_pct": 0.64
+      },
+      {
+        "year": 2025,
+        "month": 8,
+        "return_pct": 5.84
+      },
+      {
+        "year": 2025,
+        "month": 9,
+        "return_pct": 9.21
+      },
+      {
+        "year": 2025,
+        "month": 10,
+        "return_pct": -4.97
+      },
+      {
+        "year": 2025,
+        "month": 11,
+        "return_pct": -1.63
+      },
+      {
+        "year": 2025,
+        "month": 12,
+        "return_pct": -0.24
+      },
+      {
+        "year": 2026,
+        "month": 1,
+        "return_pct": 1.96
+      },
+      {
+        "year": 2026,
+        "month": 2,
+        "return_pct": -3.87
+      },
+      {
+        "year": 2026,
+        "month": 3,
+        "return_pct": -2.56
+      },
+      {
+        "year": 2026,
+        "month": 4,
+        "return_pct": 3.3
+      }
+    ],
+    "top_holdings": [],
+    "sector_breakdown": [
+      {
+        "sector_label_zh": "制造业",
+        "weight_pct": 38.67,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "金融业",
+        "weight_pct": 4.04,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "水利、环境和公共设施管理业",
+        "weight_pct": 3.33,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "交通运输、仓储和邮政业",
+        "weight_pct": 0.49,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "采矿业",
+        "weight_pct": 0.03,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "信息传输、软件和信息技术服务业",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "科学研究和技术服务业",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "电力、热力、燃气及水生产和供应业",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "房地产业",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "建筑业",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "教育",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "居民服务、修理和其他服务业",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "农、林、牧、渔业",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "批发和零售业",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "卫生和社会工作",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "文化、体育和娱乐业",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "住宿和餐饮业",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "综合",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "租赁和商务服务业",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "CSRC"
+      },
+      {
+        "sector_label_zh": "通讯业务",
+        "weight_pct": 20.53,
+        "taxonomy_hint": "GICS"
+      },
+      {
+        "sector_label_zh": "信息技术",
+        "weight_pct": 6.3,
+        "taxonomy_hint": "GICS"
+      },
+      {
+        "sector_label_zh": "房地产",
+        "weight_pct": 6.12,
+        "taxonomy_hint": "GICS"
+      },
+      {
+        "sector_label_zh": "非日常生活消费品",
+        "weight_pct": 5.03,
+        "taxonomy_hint": "GICS"
+      },
+      {
+        "sector_label_zh": "金融",
+        "weight_pct": 4.51,
+        "taxonomy_hint": "GICS"
+      },
+      {
+        "sector_label_zh": "工业",
+        "weight_pct": 4.15,
+        "taxonomy_hint": "GICS"
+      },
+      {
+        "sector_label_zh": "医疗保健",
+        "weight_pct": 3.0,
+        "taxonomy_hint": "GICS"
+      },
+      {
+        "sector_label_zh": "日常消费品",
+        "weight_pct": 1.56,
+        "taxonomy_hint": "GICS"
+      },
+      {
+        "sector_label_zh": "原材料",
+        "weight_pct": 0.78,
+        "taxonomy_hint": "GICS"
+      },
+      {
+        "sector_label_zh": "公用事业",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "GICS"
+      },
+      {
+        "sector_label_zh": "能源",
+        "weight_pct": 0.0,
+        "taxonomy_hint": "GICS"
+      }
+    ],
+    "geographic_breakdown": [],
+    "position_counts": {
+      "long": 52,
+      "short": null,
+      "net": null
+    },
+    "cash_allocation_band": null,
+    "events": [],
+    "manager_commentary_summary": "随着上市公司年报及一季报进入密集披露期，叠加地缘冲突升级后迎来修复，市场完成从情绪修复到基本面验证的切换，大盘整体震荡上行，全面普涨，4月上证指数上涨5.66%，深证成指上涨12.09%，沪深300上涨8.03%，A股驱动力：半导体、存储链条为主要领涨方向。国内方面，中央政治局会议充分肯定今年以来经济发展取得的积极成效，会议强调韧性灵活性对冲贸易摩擦，重视人民币汇率稳定。国际方面，美联储议息会议决定维持利率区间不变，美联储整体维持谨慎情态势；美伊局势僵局悬而未决，美伊双方短期内均无意推动中美大规模升级，短期局势恶化的概率较低但仍存在进一步缓和的空间。组合核心配置旧稳定新能源制造与互联网平台型资产两大主线，兼顾产业成长逻辑与估值安全边际，通过分散回报来源、均衡配置结构，有效提升组合整体抗波动能力与运行韧性。后续组合将延续长期价值投资思路，坚守产业逻辑清晰、竞争壁垒突出的核心赛道，持续深耕优质核心资产，同时结合市场景气变化、估值水平与预期收益率动态调整持仓，持续优化组合内部结构。",
+    "extraction_notes": "1. A股行业分类使用证监会(CSRC)行业分类，标注为\"a股中上协行业分类别20260331\"；港股行业分类使用GICS，标注为\"H股全球GICS行业分类别20260331\"。两个子表均为\"行业内股票占全部股票部位比例(%)\"，已合并入sector_breakdown并分别标注taxonomy_hint。2. 持仓结构页仅显示资产类别的定性描述（高/中/低/无），无数值化的geographic_breakdown，故geographic_breakdown为空数组，但从权益持仓分布图可见A股、港股、US_STOCK均有配置（无精确数值，不录入）。3. no per-security top-N table shown; sector-level data only. 4. 成立以来上涨月数52、下跌月数37来自统计分析栏。5. 年度累计列中，2019年为20.69%，2020年为56.60%，2021年为-1.45%，2022年为-11.15%，2023年为-5.64%，2024年为36.16%，2025年为31.38%，2026年截至4月为-1.35%（即今年以来收益率），这些年度数据未单独录入monthly_returns。6. 近三年最大回撤-12.43%、成立以来最大回撤-29.91%、成立以来年化波动率18.95%、成立以来年化夏普比率0.7591均来自统计分析栏，schema中无对应字段，未录入。"
+  },
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 2798,
+    "inference_geo": "global",
+    "input_tokens": 3453,
+    "output_tokens": 4838,
+    "server_tool_use": null,
+    "service_tier": "standard"
+  }
+}
