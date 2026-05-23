@@ -110,6 +110,60 @@ LOTS_20260430 = {
 
 REDEMPTION_NOTE = "于2026年4月18日全部赎回, 赎回净值 1.0345"
 
+# Per-lot 备注 overrides — keyed by (fund_display, subscription_date,
+# snapshot_date). Crafted to exercise specific notes_parser regexes (Path B)
+# per prism plan 0040 ask #1. Each note is a self-contained string the
+# parser can hit without any other context:
+#
+#   - DIVIDEND_SIMPLE     "YYYY年M月每单位分红 X 元, 分红份额 Y, 合计收到的现金红利 Z 元"
+#   - DRIP                "YYYY年M月D日, 红利再投资 X 份, 单位净值 Y 元"
+#   - PERF_FEE            "已累计扣除 X 份额作为业绩报酬"
+#   - CUMULATIVE_DRIP     "累计红利再投资份额 X"  (observation, not event)
+#
+# Choices below are deliberately scoped so that:
+#   - Path B notes-row exercises all three `record_cash_flow.flow_type`
+#     discriminators (distribution, drip, performance_fee).
+#   - The DRIP per-event sum (1234.56 + 567.89 = 1802.45) is *less than*
+#     the cumulative_drip observation (10_000), so reconcile()'s drip_gap
+#     check fires with a non-empty `drip_gap_rows` list.
+NOTES_OVERRIDES: dict[tuple[str, date, date], str] = {
+    # 华夏纯债债券A — cash dividend in 2026-01
+    (
+        "华夏纯债债券A\n(000015)",
+        date(2023, 1, 20),
+        date(2026, 3, 31),
+    ): "2026年1月每单位分红 0.05 元, 分红份额 500000 份, 合计收到的现金红利 25000 元",
+
+    # 易方达裕祥回报债券 — DRIP in 2026-02 + cumulative_drip annotation
+    # that exceeds the per-event sum (drip_gap test).
+    (
+        "易方达裕祥回报债券\n(002351)",
+        date(2021, 2, 1),
+        date(2026, 3, 31),
+    ): (
+        "2026年2月10日, 红利再投资 1234.56 份, 单位净值 1.1542 元. "
+        "累计红利再投资份额 10000"
+    ),
+
+    # 易方达裕祥回报债券 — second DRIP in 2026-04 + repeated cumulative
+    # annotation (still exceeds the sum so drip_gap remains).
+    (
+        "易方达裕祥回报债券\n(002351)",
+        date(2021, 2, 1),
+        date(2026, 4, 30),
+    ): (
+        "2026年4月10日, 红利再投资 567.89 份, 单位净值 1.1601 元. "
+        "累计红利再投资份额 10000"
+    ),
+
+    # 禾瑞十号 (first lot, 2025-02-11) — perf_fee in 2026-03
+    (
+        "禾瑞十号",
+        date(2025, 2, 11),
+        date(2026, 3, 31),
+    ): "已累计扣除 1500.0 份额作为业绩报酬",
+}
+
 
 def _bucket_col_for(fund_display: str, snapshot_lots: dict) -> str:
     for f, b, _ in FUNDS:
@@ -163,7 +217,11 @@ def _write_snapshot(ws: Worksheet, snap_date: date, lots_by_fund: dict) -> None:
             ws[f"J{r}"] = nav
             if units is not None:
                 ws[f"K{r}"] = units
-            if is_redeemed:
+            # 备注 priority: explicit notes_override > redemption stub > empty.
+            note = NOTES_OVERRIDES.get((fund_display, sub_date, snap_date))
+            if note:
+                ws[f"L{r}"] = note
+            elif is_redeemed:
                 ws[f"L{r}"] = REDEMPTION_NOTE
             r += 1
 
