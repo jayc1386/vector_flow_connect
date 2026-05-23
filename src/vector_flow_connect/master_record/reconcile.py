@@ -22,7 +22,6 @@ import pandas as pd
 from ._inherited_canonical_contract import resolve_data_quality_flag
 from .canonical import SCHEMA_VERSION, SOURCE_ID
 
-
 # ---------------------------------------------------------------------------
 # Return-shape contract — TypedDicts for the three break categories and the
 # top-level `reconcile()` return. These are load-bearing for prism's typed-
@@ -299,9 +298,7 @@ def reconcile(
             if abs(gap) > unit_tolerance:
                 as_of_val = row["as_of"]
                 as_of_iso = (
-                    as_of_val.isoformat()
-                    if hasattr(as_of_val, "isoformat")
-                    else str(as_of_val)
+                    as_of_val.isoformat() if hasattr(as_of_val, "isoformat") else str(as_of_val)
                 )
                 drip_gap_rows.append(
                     {

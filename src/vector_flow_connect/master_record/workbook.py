@@ -206,9 +206,7 @@ def extract(
 
     for evt in events:
         if "fund_code" not in evt or evt.get("fund_code") is None:
-            evt["fund_code"] = _resolve_fund_code(
-                evt.get("fund_id"), evt.get("source_fund_string")
-            )
+            evt["fund_code"] = _resolve_fund_code(evt.get("fund_id"), evt.get("source_fund_string"))
     for pos in positions:
         if "fund_code" not in pos or pos.get("fund_code") is None:
             # positions don't carry source_fund_string — try fund_id directly,
@@ -316,17 +314,14 @@ def extract(
     # `code_source`, `code_confidence`. We only fill rows where Tier 1/A
     # didn't resolve a code; existing codes (extracted from the source
     # workbook itself) take precedence over the reference table.
-    ref_path = (
-        Path(fund_codes_reference) if fund_codes_reference else DEFAULT_FUND_CODES_REFERENCE
-    )
+    ref_path = Path(fund_codes_reference) if fund_codes_reference else DEFAULT_FUND_CODES_REFERENCE
     if not funds_df.empty and ref_path.exists():
         ref = pd.read_csv(ref_path, dtype=str)
-        ref_map = (
-            ref.set_index("fund_id")[["fund_code", "code_source", "code_confidence"]]
-            .to_dict(orient="index")
+        ref_map = ref.set_index("fund_id")[["fund_code", "code_source", "code_confidence"]].to_dict(
+            orient="index"
         )
         for i, frow in funds_df.iterrows():
-            if pd.notna(frow["fund_code"]):
+            if bool(pd.notna(frow["fund_code"])):
                 continue
             ref_row = ref_map.get(frow["fund_id"])
             if ref_row is None:

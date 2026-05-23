@@ -50,25 +50,25 @@ OUT = Path(__file__).parent / "synthetic_workbook.xlsx"
 # Tier 3 — name-only 私募 funds outside AMAC public coverage
 FUNDS = [
     # (display_string, asset_class_column, tier)
-    ("华夏纯债债券A\n(000015)",       "bucket_fi",          1),
-    ("易方达裕祥回报债券\n(002351)",   "bucket_diversified", 1),
-    ("华安黄金易(ETF联接)A\n(000216)", "bucket_inflation",   1),
+    ("华夏纯债债券A\n(000015)", "bucket_fi", 1),
+    ("易方达裕祥回报债券\n(002351)", "bucket_diversified", 1),
+    ("华安黄金易(ETF联接)A\n(000216)", "bucket_inflation", 1),
     # Tier 2 — fund_aliases.parquet bridges name → code (no parens shown
     # in this snapshot, but the alias table maps it; for the synthetic
     # we treat it the same as Tier 3 from the parser's POV since the
     # parser sees no parens code on this row).
-    ("海富通安颐 收益混合A",            "bucket_growth",      2),
+    ("海富通安颐 收益混合A", "bucket_growth", 2),
     # Tier 3 — private, AMAC-invisible
-    ("睿远基金睿见1号",                 "bucket_growth",      3),
-    ("禾瑞十号",                       "bucket_fi",          3),
-    ("禾禧五号",                       "bucket_fi",          3),
-    ("宁泉致远18号",                   "bucket_diversified", 3),
+    ("睿远基金睿见1号", "bucket_growth", 3),
+    ("禾瑞十号", "bucket_fi", 3),
+    ("禾禧五号", "bucket_fi", 3),
+    ("宁泉致远18号", "bucket_diversified", 3),
 ]
 
 BUCKET_COL = {
-    "bucket_growth":      "E",  # col 5  投资增长类(30%)
-    "bucket_fi":          "F",  # col 6  投资固定收益类(20%)
-    "bucket_inflation":   "G",  # col 7  投资通胀敏感类(10-30%)
+    "bucket_growth": "E",  # col 5  投资增长类(30%)
+    "bucket_fi": "F",  # col 6  投资固定收益类(20%)
+    "bucket_inflation": "G",  # col 7  投资通胀敏感类(10-30%)
     "bucket_diversified": "H",  # col 8  投资分散投资类(0-30%)
 }
 
@@ -77,35 +77,43 @@ BUCKET_COL = {
 # sheets. NAV bumps slightly between snapshots so reconciliation tests
 # can verify growth math without contrived numbers.
 LOTS_20260331 = {
-    "华夏纯债债券A\n(000015)":       [(date(2023, 1, 20), 500_000, 1.0823, None)],
-    "易方达裕祥回报债券\n(002351)":   [(date(2021, 2,  1), 500_000, 1.1542, None)],
+    "华夏纯债债券A\n(000015)": [(date(2023, 1, 20), 500_000, 1.0823, None)],
+    "易方达裕祥回报债券\n(002351)": [(date(2021, 2, 1), 500_000, 1.1542, None)],
     "华安黄金易(ETF联接)A\n(000216)": [(date(2023, 3, 30), 400_000, 1.6700, None)],
-    "海富通安颐 收益混合A":            [(date(2024, 6, 15), 1_000_000, 1.1234, None)],
-    "睿远基金睿见1号":                 [(date(2025, 2, 6), 3_000_000, 1.0500, 3_000_000.00),
-                                       (date(2025, 6, 5), 1_000_000, 1.0500, 1_000_000.00)],
-    "禾瑞十号":                       [(date(2025, 2, 11), 1_000_000, 1.0200, 1_000_000.00),
-                                       (date(2025, 6, 11), 2_000_000, 1.0200, 2_000_000.00)],
-    "禾禧五号":                       [(date(2025, 2, 11), 1_000_000, 1.0300, 1_000_000.00)],
-    "宁泉致远18号":                   [(date(2025, 2, 21), 1_000_000, 1.0150, 1_000_000.00)],
+    "海富通安颐 收益混合A": [(date(2024, 6, 15), 1_000_000, 1.1234, None)],
+    "睿远基金睿见1号": [
+        (date(2025, 2, 6), 3_000_000, 1.0500, 3_000_000.00),
+        (date(2025, 6, 5), 1_000_000, 1.0500, 1_000_000.00),
+    ],
+    "禾瑞十号": [
+        (date(2025, 2, 11), 1_000_000, 1.0200, 1_000_000.00),
+        (date(2025, 6, 11), 2_000_000, 1.0200, 2_000_000.00),
+    ],
+    "禾禧五号": [(date(2025, 2, 11), 1_000_000, 1.0300, 1_000_000.00)],
+    "宁泉致远18号": [(date(2025, 2, 21), 1_000_000, 1.0150, 1_000_000.00)],
 }
 
 LOTS_20260430 = {
-    "华夏纯债债券A\n(000015)":       [(date(2023, 1, 20), 500_000, 1.0876, None)],
-    "易方达裕祥回报债券\n(002351)":   [(date(2021, 2,  1), 500_000, 1.1601, None)],
+    "华夏纯债债券A\n(000015)": [(date(2023, 1, 20), 500_000, 1.0876, None)],
+    "易方达裕祥回报债券\n(002351)": [(date(2021, 2, 1), 500_000, 1.1601, None)],
     "华安黄金易(ETF联接)A\n(000216)": [(date(2023, 3, 30), 400_000, 1.6850, None)],
-    "海富通安颐 收益混合A":            [(date(2024, 6, 15), 1_000_000, 1.1289, None)],
-    "睿远基金睿见1号":                 [(date(2025, 2, 6), 3_000_000, 1.0612, 3_000_000.00),
-                                       (date(2025, 6, 5), 1_000_000, 1.0612, 1_000_000.00),
-                                       (date(2025, 8, 4), 1_500_000, 1.0612, 1_500_000.00)],
-    "禾瑞十号":                       [(date(2025, 2, 11), 1_000_000, 1.0287, 1_000_000.00),
-                                       (date(2025, 6, 11), 2_000_000, 1.0287, 2_000_000.00),
-                                       (date(2025, 8, 12), 2_000_000, 1.0287, 2_000_000.00)],
+    "海富通安颐 收益混合A": [(date(2024, 6, 15), 1_000_000, 1.1289, None)],
+    "睿远基金睿见1号": [
+        (date(2025, 2, 6), 3_000_000, 1.0612, 3_000_000.00),
+        (date(2025, 6, 5), 1_000_000, 1.0612, 1_000_000.00),
+        (date(2025, 8, 4), 1_500_000, 1.0612, 1_500_000.00),
+    ],
+    "禾瑞十号": [
+        (date(2025, 2, 11), 1_000_000, 1.0287, 1_000_000.00),
+        (date(2025, 6, 11), 2_000_000, 1.0287, 2_000_000.00),
+        (date(2025, 8, 12), 2_000_000, 1.0287, 2_000_000.00),
+    ],
     # 禾禧五号 redeemed 2026-04-18 — the lot row stays (with original
     # subscription date + cost so the parser can resolve lot identity)
     # but units / mv collapse to 0 and the 备注 column carries the
     # redemption text for notes_parser to extract a redemption event.
-    "禾禧五号":                       [(date(2025, 2, 11), 1_000_000, 1.0345, 0.0)],
-    "宁泉致远18号":                   [(date(2025, 2, 21), 1_000_000, 1.0218, 1_000_000.00)],
+    "禾禧五号": [(date(2025, 2, 11), 1_000_000, 1.0345, 0.0)],
+    "宁泉致远18号": [(date(2025, 2, 21), 1_000_000, 1.0218, 1_000_000.00)],
 }
 
 REDEMPTION_NOTE = "于2026年4月18日全部赎回, 赎回净值 1.0345"
@@ -133,29 +141,20 @@ NOTES_OVERRIDES: dict[tuple[str, date, date], str] = {
         date(2023, 1, 20),
         date(2026, 3, 31),
     ): "2026年1月每单位分红 0.05 元, 分红份额 500000 份, 合计收到的现金红利 25000 元",
-
     # 易方达裕祥回报债券 — DRIP in 2026-02 + cumulative_drip annotation
     # that exceeds the per-event sum (drip_gap test).
     (
         "易方达裕祥回报债券\n(002351)",
         date(2021, 2, 1),
         date(2026, 3, 31),
-    ): (
-        "2026年2月10日, 红利再投资 1234.56 份, 单位净值 1.1542 元. "
-        "累计红利再投资份额 10000"
-    ),
-
+    ): ("2026年2月10日, 红利再投资 1234.56 份, 单位净值 1.1542 元. 累计红利再投资份额 10000"),
     # 易方达裕祥回报债券 — second DRIP in 2026-04 + repeated cumulative
     # annotation (still exceeds the sum so drip_gap remains).
     (
         "易方达裕祥回报债券\n(002351)",
         date(2021, 2, 1),
         date(2026, 4, 30),
-    ): (
-        "2026年4月10日, 红利再投资 567.89 份, 单位净值 1.1601 元. "
-        "累计红利再投资份额 10000"
-    ),
-
+    ): ("2026年4月10日, 红利再投资 567.89 份, 单位净值 1.1601 元. 累计红利再投资份额 10000"),
     # 禾瑞十号 (first lot, 2025-02-11) — perf_fee in 2026-03
     (
         "禾瑞十号",
@@ -255,16 +254,16 @@ def _write_snapshot(ws: Worksheet, snap_date: date, lots_by_fund: dict) -> None:
         for f, b, _ in FUNDS:
             if b != col_key or f not in lots_by_fund:
                 continue
-            for sub_date, c, nav, _u in lots_by_fund[f]:
+            for _sub_date, c, nav, _u in lots_by_fund[f]:
                 cost += c
                 mv += c * nav
         return cost, mv
 
     for label, key in [
-        ("投资增长类\n(20%)",       "bucket_growth"),
-        ("投资固定收益类\n(20%)",   "bucket_fi"),
-        ("投资通胀敏感类\n(20%)",   "bucket_inflation"),
-        ("投资分散投资类\n(40%)",   "bucket_diversified"),
+        ("投资增长类\n(20%)", "bucket_growth"),
+        ("投资固定收益类\n(20%)", "bucket_fi"),
+        ("投资通胀敏感类\n(20%)", "bucket_inflation"),
+        ("投资分散投资类\n(40%)", "bucket_diversified"),
     ]:
         cost, mv = _bucket_totals(key)
         ws[f"A{r}"] = label
@@ -276,7 +275,9 @@ def _write_snapshot(ws: Worksheet, snap_date: date, lots_by_fund: dict) -> None:
 
 def main() -> None:
     wb: Workbook = openpyxl.Workbook()
-    wb.remove(wb.active)
+    default_ws = wb.active
+    assert default_ws is not None
+    wb.remove(default_ws)
 
     ws1 = wb.create_sheet("20260331")
     _write_snapshot(ws1, date(2026, 3, 31), LOTS_20260331)
