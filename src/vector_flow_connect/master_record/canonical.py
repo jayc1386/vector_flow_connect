@@ -18,12 +18,14 @@ SOURCE_ID = "dku_master_record_v1"
 
 EventType = Literal["subscription", "redemption", "dividend", "perf_fee"]
 Confidence = Literal["clean", "fuzzy", "reconcile_fail"]
+CodeConfidence = Literal["confirmed", "tentative"]
 
 EVENT_COLUMNS: list[str] = [
     "event_id",
     "event_type",
     "fund_id",
     "fund_code",
+    "code_confidence",
     "source_fund_string",
     "lot_id",
     "event_date",
@@ -55,6 +57,7 @@ LOT_COLUMNS: list[str] = [
     "lot_id",
     "fund_id",
     "fund_code",
+    "code_confidence",
     "subscription_date",
     "subscription_event_id",
     "initial_cost",
@@ -71,6 +74,8 @@ FUND_COLUMNS: list[str] = [
     "source_fund_string",
     "name_zh",
     "fund_code",
+    "code_confidence",
+    "code_source",
     "asset_class",
     "first_seen_as_of",
     "last_seen_as_of",
@@ -82,6 +87,7 @@ POSITION_COLUMNS: list[str] = [
     "lot_id",
     "fund_id",
     "fund_code",
+    "code_confidence",
     "as_of",
     "units",
     "nav",
@@ -109,6 +115,7 @@ OBSERVATION_COLUMNS: list[str] = [
     "observation_type",
     "fund_id",
     "fund_code",
+    "code_confidence",
     "source_fund_string",
     "as_of",
     "value",

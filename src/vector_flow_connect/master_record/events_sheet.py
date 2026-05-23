@@ -29,7 +29,7 @@ from datetime import date, datetime
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 
-from ._inherited_canonical_contract import validate_data_quality_flag
+from ._inherited_canonical_contract import validate_data_quality_flag, validate_payout_form
 from .canonical import (
     EXTRACTOR_NAME,
     EXTRACTOR_VERSION,
@@ -56,16 +56,19 @@ HEADER_PATTERNS: dict[str, str] = {
     "备注": "notes_raw",
 }
 
-# Chinese event-type label → canonical (event_type, payout_form) tuple.
+# Chinese event-type label → canonical (event_type, payout_form, perf_fee_subtype) tuple.
 # canonical event_type ∈ {"subscription", "redemption", "dividend", "perf_fee"}.
-EVENT_TYPE_MAP: dict[str, tuple[str, str | None]] = {
-    "申购": ("subscription", None),
-    "赎回": ("redemption", None),
-    "分红现金": ("dividend", "cash"),
-    "分红再投": ("dividend", "drip"),
-    "业绩报酬": ("perf_fee", None),
-    "申购费": ("perf_fee", "entry_fee"),
-    "赎回费": ("perf_fee", "exit_fee"),
+# `payout_form` strictly honors the dividend-only enum
+# (`PayoutForm = "cash" | "reinvested"`); perf_fee subtype gets a third slot
+# we surface in `notes_raw` rather than overloading payout_form.
+EVENT_TYPE_MAP: dict[str, tuple[str, str | None, str | None]] = {
+    "申购": ("subscription", None, None),
+    "赎回": ("redemption", None, None),
+    "分红现金": ("dividend", "cash", None),
+    "分红再投": ("dividend", "reinvested", None),
+    "业绩报酬": ("perf_fee", None, "performance_fee"),
+    "申购费": ("perf_fee", None, "entry_fee"),
+    "赎回费": ("perf_fee", None, "exit_fee"),
 }
 
 # Reconciliation gate tolerance for `|份额变化 × 单位净值| ≈ |现金流入/出|`.
@@ -133,10 +136,12 @@ def parse_events_sheet(
         canon = EVENT_TYPE_MAP.get(event_type_zh)
         if canon is None:
             # Unknown event-type — emit a flagged row so the operator
-            # sees it instead of silently dropping it.
-            canon = ("perf_fee", f"unknown_event_type:{event_type_zh}")
+            # sees it instead of silently dropping it. payout_form stays
+            # None (it's reserved for dividend cash/reinvested); the
+            # unknown label rides into notes_raw via perf_fee_subtype.
+            canon = ("perf_fee", None, f"unknown_event_type:{event_type_zh}")
 
-        event_type, payout_form_or_qualifier = canon
+        event_type, payout_form, perf_fee_subtype = canon
 
         # Reconciliation gate (sign-insensitive). Only meaningful for
         # transactions where both units AND cash move (subscription,
@@ -163,6 +168,16 @@ def parse_events_sheet(
         fund_code = row_dict.get("fund_code") or None
         fund_id = resolver(fund_code) if fund_code else resolver(event_type_zh)
 
+        # perf_fee_subtype (entry_fee / exit_fee / performance_fee /
+        # unknown_event_type:…) rides into notes_raw with a structured
+        # prefix; downstream consumers can parse it back without us
+        # adding a column.
+        notes_raw_in = row_dict.get("notes_raw") or ""
+        if perf_fee_subtype:
+            notes_raw_out = f"[perf_fee_subtype={perf_fee_subtype}] {notes_raw_in}".strip()
+        else:
+            notes_raw_out = notes_raw_in
+
         # Deterministic event_id — re-extracts of the same row produce
         # the same id. Uses fund_code (or "" if absent), the canonical
         # event_type, the event date, and the units_delta to discriminate.
@@ -186,11 +201,11 @@ def parse_events_sheet(
             units_delta=row_dict.get("units_delta"),
             cash_delta=row_dict.get("cash_delta"),
             per_unit_amount=row_dict.get("per_unit_amount"),
-            payout_form=payout_form_or_qualifier,
+            payout_form=validate_payout_form(payout_form),
             currency="CNY",
             confidence="clean",
             data_quality_flag=validate_data_quality_flag(dq_flag),
-            notes_raw=row_dict.get("notes_raw"),
+            notes_raw=notes_raw_out,
             source_artifact=ctx.artifact,
             source_artifact_hash=ctx.artifact_hash,
             source_locator=source_locator,

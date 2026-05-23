@@ -15,11 +15,74 @@ Three checks (v1):
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal, TypedDict
 
 import pandas as pd
 
 from ._inherited_canonical_contract import resolve_data_quality_flag
 from .canonical import SCHEMA_VERSION, SOURCE_ID
+
+
+# ---------------------------------------------------------------------------
+# Return-shape contract — TypedDicts for the three break categories and the
+# top-level `reconcile()` return. These are load-bearing for prism's typed-
+# tool mapping (`record_cash_flow` / `record_data_quality_finding`); future
+# bumps that change a field name or type must update these in the same diff
+# so the contract is diff-visible.
+# ---------------------------------------------------------------------------
+
+CashflowSide = Literal["annualized_only", "events_only"]
+
+
+class CashflowIssue(TypedDict):
+    """A cashflow seen in only one of (annualized sheet, events). The
+    annualized sheet is a fund-of-funds aggregate view (no per-fund
+    breakdown), so there is no `fund_id` on these rows.
+
+    `date` (not `as_of`) is kept as the field name because the cashflow's
+    natural anchor is the cashflow date, not a position-snapshot timestamp.
+    """
+
+    side: CashflowSide
+    date: str  # ISO date
+    amount: float
+
+
+class UnitIssue(TypedDict):
+    """A (lot, snapshot) where observed units don't equal
+    initial_units − Σ(units_delta up to that snapshot)."""
+
+    lot_id: str
+    fund_id: str | None
+    as_of: str  # ISO date
+    expected: float
+    observed: float
+    diff: float  # observed − expected
+
+
+class DripGapRow(TypedDict):
+    """A fund where the cumulative DRIP balance annotation exceeds the sum
+    of attested per-event DRIP `units_delta` rows. Indicates real DRIPs
+    that DKU didn't write into 注释 as dated annotations."""
+
+    fund_id: str
+    source_fund_string: str
+    as_of: str  # ISO date
+    cumulative_balance: float
+    attested_per_event_sum: float
+    gap: float  # cumulative − attested
+
+
+class ReconcileResult(TypedDict):
+    """Top-level dict returned by `reconcile()`. The list-typed fields are
+    the inputs prism's `record_data_quality_finding` typed tool maps over;
+    scalar fields are summary counts + the markdown report path."""
+
+    cashflow_issues: list[CashflowIssue]
+    unit_issues: list[UnitIssue]
+    drip_gap_rows: list[DripGapRow]
+    dividend_fails: int
+    report_path: str
 
 
 def reconcile(
@@ -31,7 +94,7 @@ def reconcile(
     observations_df: pd.DataFrame | None = None,
     date_tolerance_days: int = 3,
     unit_tolerance: float = 1.0,
-) -> dict:
+) -> ReconcileResult:
     """Run all three checks and write a markdown report.
 
     Returns a dict with summary counts and the report path.
@@ -234,11 +297,17 @@ def reconcile(
             attested_sum = float(attested.get(fid, 0.0))
             gap = observed_cum - attested_sum
             if abs(gap) > unit_tolerance:
+                as_of_val = row["as_of"]
+                as_of_iso = (
+                    as_of_val.isoformat()
+                    if hasattr(as_of_val, "isoformat")
+                    else str(as_of_val)
+                )
                 drip_gap_rows.append(
                     {
                         "fund_id": fid,
                         "source_fund_string": row["source_fund_string"],
-                        "as_of": row["as_of"],
+                        "as_of": as_of_iso,
                         "cumulative_balance": observed_cum,
                         "attested_per_event_sum": attested_sum,
                         "gap": gap,
