@@ -41,6 +41,14 @@ from .snapshot import scan_fund_strings
 
 SNAPSHOT_RE = re.compile(r"^\d{8}$")
 
+# Default location of the per-tenant fund_code reference CSV (Bucket B).
+# Resolved relative to the repository root so vfc bundles a sample DKU
+# reference at install time; callers can override via the
+# `fund_codes_reference` parameter to `extract()`.
+DEFAULT_FUND_CODES_REFERENCE = (
+    Path(__file__).resolve().parents[3] / "data" / "reference" / "fund_codes.csv"
+)
+
 
 def classify_sheet(name: str) -> str:
     if SNAPSHOT_RE.fullmatch(name):
@@ -62,6 +70,7 @@ def extract(
     workbook_path: str | Path,
     *,
     out_dir: str | Path = "data/canonical",
+    fund_codes_reference: str | Path | None = None,
 ) -> dict:
     """Run the full extraction pipeline.
 
@@ -171,22 +180,40 @@ def extract(
 
     wb.close()
 
-    def _fund_code_from_source(s: str | None) -> str | None:
-        if not s:
-            return None
-        m = re.search(r"\((\d{4,6})\)", s)
-        return m.group(1) if m else None
+    # --- fund_code resolution ---
+    # Three tiers, evaluated in order:
+    #   Tier 1: parens in `source_fund_string` (e.g. `华夏纯债债券A (000015)`)
+    #   Bucket A: fund_id of form `fnd_<6-digit>` — recoverable from the
+    #     resolver's clustering even if the first-seen event for that
+    #     fund lacks parens
+    #   Bucket B: static reference table for funds outside Tier 1/A
+    #     (AMAC private funds, unverified CSRC, issuer-internal)
+    # Tiers 1 + A are applied here at row-construction time. Bucket B is
+    # joined into funds_df after it is built, then backfilled to row
+    # tables via the fund_id → fund_code map.
+    fund_id_code_re = re.compile(r"^fnd_(\d{6})$")
 
-    # Stamp fund_code on every event/position from the source_fund_string
-    # parenthetical, so downstream consumers don't have to join out to
-    # funds.parquet.
+    def _resolve_fund_code(fund_id: str | None, source_fund_string: str | None) -> str | None:
+        if source_fund_string:
+            m = re.search(r"\((\d{4,6})\)", source_fund_string)
+            if m:
+                return m.group(1)
+        if fund_id:
+            m2 = fund_id_code_re.match(fund_id)
+            if m2:
+                return m2.group(1)
+        return None
+
     for evt in events:
         if "fund_code" not in evt or evt.get("fund_code") is None:
-            evt["fund_code"] = _fund_code_from_source(evt.get("source_fund_string"))
+            evt["fund_code"] = _resolve_fund_code(
+                evt.get("fund_id"), evt.get("source_fund_string")
+            )
     for pos in positions:
         if "fund_code" not in pos or pos.get("fund_code") is None:
-            # positions don't carry source_fund_string directly — look up via fund_id
-            pos["fund_code"] = None  # filled in by the funds-join below
+            # positions don't carry source_fund_string — try fund_id directly,
+            # remaining gaps fill in via the funds-join below.
+            pos["fund_code"] = _resolve_fund_code(pos.get("fund_id"), None)
 
     # Dedupe events: same event_id may be produced from multiple
     # snapshots. Keep the row with the earliest `recorded_at`.
@@ -251,12 +278,17 @@ def extract(
             if fid in fund_rows:
                 continue
             raw = row["source_fund_string"] or ""
-            code_match = re.search(r"\((\d{4,6})\)", raw)
+            resolved = _resolve_fund_code(fid, raw)
             fund_rows[fid] = {
                 "fund_id": fid,
                 "source_fund_string": raw,
                 "name_zh": re.sub(r"\(\d{4,6}\)", "", raw).strip(),
-                "fund_code": code_match.group(1) if code_match else None,
+                "fund_code": resolved,
+                # Codes derived from the source workbook (Tier 1 or Bucket A)
+                # are confirmed; Bucket B's reference CSV may overlay its own
+                # confidence below.
+                "code_confidence": "confirmed" if resolved else None,
+                "code_source": "CSRC" if resolved else None,
                 "asset_class": None,
                 "first_seen_as_of": fund_first_seen.get(fid),
                 "last_seen_as_of": fund_last_seen.get(fid),
@@ -279,20 +311,57 @@ def extract(
     else:
         funds_df = pd.DataFrame(columns=FUND_COLUMNS)
 
-    # Backfill fund_code on positions via fund_id → fund_code lookup.
-    if not positions_df.empty and not funds_df.empty:
-        fund_code_map = dict(zip(funds_df["fund_id"], funds_df["fund_code"], strict=False))
-        positions_df["fund_code"] = positions_df["fund_id"].map(fund_code_map)
-    # Backfill fund_code on lots via the same map.
-    if not lots_df.empty and not funds_df.empty:
-        fund_code_map = dict(zip(funds_df["fund_id"], funds_df["fund_code"], strict=False))
-        lots_df["fund_code"] = lots_df.get("fund_code").where(
-            lots_df.get("fund_code").notna(), lots_df["fund_id"].map(fund_code_map)
+    # --- Bucket B: overlay static reference CSV onto funds_df ---
+    # Reference CSV is keyed by fund_id and carries `fund_code`,
+    # `code_source`, `code_confidence`. We only fill rows where Tier 1/A
+    # didn't resolve a code; existing codes (extracted from the source
+    # workbook itself) take precedence over the reference table.
+    ref_path = (
+        Path(fund_codes_reference) if fund_codes_reference else DEFAULT_FUND_CODES_REFERENCE
+    )
+    if not funds_df.empty and ref_path.exists():
+        ref = pd.read_csv(ref_path, dtype=str)
+        ref_map = (
+            ref.set_index("fund_id")[["fund_code", "code_source", "code_confidence"]]
+            .to_dict(orient="index")
         )
+        for i, frow in funds_df.iterrows():
+            if pd.notna(frow["fund_code"]):
+                continue
+            ref_row = ref_map.get(frow["fund_id"])
+            if ref_row is None:
+                continue
+            funds_df.at[i, "fund_code"] = ref_row["fund_code"]
+            funds_df.at[i, "code_source"] = ref_row["code_source"]
+            funds_df.at[i, "code_confidence"] = ref_row["code_confidence"]
+
+    # Backfill fund_code + code_confidence on events, positions, lots,
+    # observations via fund_id → (fund_code, code_confidence) lookup off
+    # funds_df. Existing fund_code values (from Tier 1/A early-stamp) are
+    # preserved.
+    def _backfill_codes(df: pd.DataFrame, funds_df: pd.DataFrame) -> pd.DataFrame:
+        if df.empty or funds_df.empty:
+            return df
+        code_map = dict(zip(funds_df["fund_id"], funds_df["fund_code"], strict=False))
+        conf_map = dict(zip(funds_df["fund_id"], funds_df["code_confidence"], strict=False))
+        existing_code = df.get("fund_code") if "fund_code" in df.columns else None
+        if existing_code is not None:
+            df["fund_code"] = existing_code.where(
+                existing_code.notna(), df["fund_id"].map(code_map)
+            )
+        else:
+            df["fund_code"] = df["fund_id"].map(code_map)
+        df["code_confidence"] = df["fund_id"].map(conf_map)
+        return df
+
+    events_df = _backfill_codes(events_df, funds_df)
+    positions_df = _backfill_codes(positions_df, funds_df)
+    lots_df = _backfill_codes(lots_df, funds_df)
 
     # Fund-alias table — every source string we saw, with the
     # canonical fund_id it resolved to. Prism's identity registry can
-    # absorb this directly at adapter time.
+    # absorb this directly at adapter time. The resolver only populates
+    # Tier 1 codes; overlay Bucket A + B from funds_df for full coverage.
     alias_rows = resolver_to_dataframe_rows(resolver)
     fund_aliases_df = (
         pd.DataFrame(alias_rows)
@@ -301,6 +370,14 @@ def extract(
             columns=["fund_id", "fund_code", "canonical_name", "alias", "is_canonical"]
         )
     )
+    if not fund_aliases_df.empty and not funds_df.empty:
+        code_map = dict(zip(funds_df["fund_id"], funds_df["fund_code"], strict=False))
+        conf_map = dict(zip(funds_df["fund_id"], funds_df["code_confidence"], strict=False))
+        fund_aliases_df["fund_code"] = fund_aliases_df["fund_code"].where(
+            fund_aliases_df["fund_code"].notna(),
+            fund_aliases_df["fund_id"].map(code_map),
+        )
+        fund_aliases_df["code_confidence"] = fund_aliases_df["fund_id"].map(conf_map)
     fund_aliases_df["source_id"] = SOURCE_ID
     fund_aliases_df["schema_version"] = SCHEMA_VERSION
 
@@ -320,10 +397,8 @@ def extract(
             .drop_duplicates(subset=["fund_id", "observation_type", "value"], keep="first")
             .reset_index(drop=True)
         )
-        # Backfill fund_code via fund_id → fund_code lookup if known.
-        if not funds_df.empty:
-            obs_fund_code_map = dict(zip(funds_df["fund_id"], funds_df["fund_code"], strict=False))
-            obs_df["fund_code"] = obs_df["fund_id"].map(obs_fund_code_map)
+        # Backfill fund_code + code_confidence via fund_id lookup off funds_df.
+        obs_df = _backfill_codes(obs_df, funds_df)
         # Reindex to canonical OBSERVATION_COLUMNS order, filling NaN for any
         # missing columns (forward-compatible with future shape additions).
         obs_df = obs_df.reindex(columns=OBSERVATION_COLUMNS)
