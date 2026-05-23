@@ -15,6 +15,15 @@ from typing import Literal
 AssetClass = Literal["Growth", "Fixed Income", "Diversifiers", "Inflation Sensitive"]
 ASSET_CLASS_VALUES: frozenset[str] = frozenset(AssetClass.__args__)  # type: ignore[attr-defined]
 
+# Dividend events only. `None` is valid (used by every non-dividend event_type).
+# Both Path A (events_sheet) and Path B (notes_parser) must honor this enum so
+# prism's `record_cash_flow.flow_type` mapping works uniformly:
+#   dividend + cash       → distribution
+#   dividend + reinvested → drip
+#   perf_fee + None       → performance_fee
+PayoutForm = Literal["cash", "reinvested"]
+PAYOUT_FORM_VALUES: frozenset[str] = frozenset(PayoutForm.__args__)  # type: ignore[attr-defined]
+
 DataQualityFlag = Literal[
     "clean",
     "derived_from_events_log",
@@ -49,6 +58,19 @@ _DATA_QUALITY_PRECEDENCE: dict[str, int] = {
 def validate_asset_class(value: str) -> str:
     if value not in ASSET_CLASS_VALUES:
         raise ValueError(f"asset_class={value!r} not in IPS enum {sorted(ASSET_CLASS_VALUES)}")
+    return value
+
+
+def validate_payout_form(value: str | None) -> str | None:
+    """Returns the value if valid; raises on a bad string. `None` is OK
+    (every non-dividend event_type carries `payout_form=None`)."""
+    if value is None:
+        return None
+    if value not in PAYOUT_FORM_VALUES:
+        raise ValueError(
+            f"payout_form={value!r} not in enum {sorted(PAYOUT_FORM_VALUES)} "
+            f"(or None for non-dividend events)"
+        )
     return value
 
 

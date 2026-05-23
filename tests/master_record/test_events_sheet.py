@@ -101,7 +101,7 @@ def test_event_type_mapping_dividend_cash_vs_drip():
     wb = _wb_with_events_sheet(
         [
             [date(2026, 1, 31), "A", "分红现金", 0, 100, 1.0, "cash dividend"],
-            [date(2026, 1, 31), "B", "分红再投", 50, 0, 1.0, "drip"],
+            [date(2026, 1, 31), "B", "分红再投", 50, 0, 1.0, "reinvested"],
         ]
     )
     events = parse_events_sheet(wb, ctx=_ctx())
@@ -110,7 +110,10 @@ def test_event_type_mapping_dividend_cash_vs_drip():
     assert cash["event_type"] == "dividend"
     assert cash["payout_form"] == "cash"
     assert drip["event_type"] == "dividend"
-    assert drip["payout_form"] == "drip"
+    # Path A now honors the canonical PayoutForm enum ("cash" | "reinvested")
+    # instead of the old "drip" alias; matches Path B and prism's
+    # record_cash_flow mapping (dividend+reinvested → drip downstream).
+    assert drip["payout_form"] == "reinvested"
 
 
 def test_event_type_mapping_redemption_and_perf_fee():
@@ -122,16 +125,41 @@ def test_event_type_mapping_redemption_and_perf_fee():
     )
     events = parse_events_sheet(wb, ctx=_ctx())
     assert events[0]["event_type"] == "redemption"
+    assert events[0]["payout_form"] is None
     assert events[1]["event_type"] == "perf_fee"
+    assert events[1]["payout_form"] is None
+    # perf_fee subtype rides into notes_raw with a structured prefix
+    # instead of overloading payout_form.
+    assert "[perf_fee_subtype=performance_fee]" in events[1]["notes_raw"]
+
+
+def test_fee_subtypes_ride_into_notes_raw_not_payout_form():
+    wb = _wb_with_events_sheet(
+        [
+            [date(2026, 3, 1), "A", "申购费", 0, -50, None, ""],
+            [date(2026, 3, 1), "A", "赎回费", 0, -30, None, ""],
+        ]
+    )
+    events = parse_events_sheet(wb, ctx=_ctx())
+    for evt in events:
+        # payout_form is reserved for dividend events; perf_fee carries None
+        # and the entry/exit-fee subtype goes to notes_raw.
+        assert evt["event_type"] == "perf_fee"
+        assert evt["payout_form"] is None
+    assert "[perf_fee_subtype=entry_fee]" in events[0]["notes_raw"]
+    assert "[perf_fee_subtype=exit_fee]" in events[1]["notes_raw"]
 
 
 def test_unknown_event_type_emits_flagged_row_not_dropped():
     wb = _wb_with_events_sheet([[date(2026, 3, 1), "X", "未知类型", 0, 0, None, ""]])
     events = parse_events_sheet(wb, ctx=_ctx())
     assert len(events) == 1
-    # Falls back to perf_fee with a qualifier in payout_form
+    # Falls back to perf_fee; unknown label rides into notes_raw under the
+    # perf_fee_subtype prefix (payout_form stays None to keep the dividend-
+    # only enum clean).
     assert events[0]["event_type"] == "perf_fee"
-    assert "unknown_event_type" in events[0]["payout_form"]
+    assert events[0]["payout_form"] is None
+    assert "unknown_event_type:未知类型" in events[0]["notes_raw"]
 
 
 # --- source_locator construction ---
