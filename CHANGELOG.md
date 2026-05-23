@@ -2,6 +2,78 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] — 2026-05-23
+
+Canonical-emit polish + prism plan 0040 typed-tool seam prep. Lifts
+the dkup-side polish (commits `f1ff736` → `8020524`) and the
+`record_cash_flow` / `record_data_quality_finding` contract additions
+prism asked for on the relay (2026-05-23T03:29Z).
+
+### Added
+
+- **`fund_code` row-level coverage**: every event / lot / position /
+  observation row now carries `fund_code` (nullable) plus
+  `code_confidence` (`confirmed | tentative`). Three-tier resolution:
+  Tier 1 (parens in `source_fund_string`), Bucket A (decode
+  `fnd_<6-digit>` from `fund_id`), Bucket B (static reference CSV
+  passed via `extract(..., fund_codes_reference=...)`). `funds.parquet`
+  additionally carries `code_source` (`CSRC | AMAC | issuer_internal`).
+  Tentative codes are guesses pending tenant confirmation and MUST
+  NOT be cross-tenant-merged by prism's identity registry until
+  resolved.
+- **`reconcile.py` TypedDicts**: `CashflowIssue`, `UnitIssue`,
+  `DripGapRow`, `ReconcileResult`. The function signature now
+  declares `-> ReconcileResult` so future shape drift fails loudly
+  via mypy / runtime introspection. Lock for prism's
+  `record_data_quality_finding` typed-tool mapping.
+- **`PayoutForm` enum + `validate_payout_form()`**: third value-axis
+  validator in `_inherited_canonical_contract` alongside `AssetClass`
+  and `DataQualityFlag`. `PayoutForm = Literal["cash", "reinvested"]`,
+  with `None` valid for non-dividend event types.
+- **Synthetic workbook fixture** exercises all three
+  `record_cash_flow.flow_type` discriminators (distribution / drip /
+  performance_fee) + non-empty `unit_issues` (1500-unit perf_fee
+  mismatch) + non-empty `drip_gap_rows` (cumulative_drip 10000 vs
+  attested per-event sum 1802.45) end-to-end through the real
+  master_record pipeline.
+
+### Changed
+
+- **`events_sheet.py` Path A payout_form fixes** (audit-and-close
+  from prism's plan 0040 ask #3):
+  - `分红再投` now emits `payout_form="reinvested"` (was `"drip"`).
+    The new value matches Path B (notes_parser) and the canonical
+    `PayoutForm` enum. Downstream prism mapping
+    (`event_type=dividend + payout_form=reinvested → drip`) is
+    unchanged.
+  - `申购费` / `赎回费` / `业绩报酬` no longer overload
+    `payout_form` with `"entry_fee"` / `"exit_fee"` /
+    `"performance_fee"` strings. The canonical contract reserves
+    `payout_form` for dividend events; `perf_fee` rows now carry
+    `payout_form=None` and the subtype rides into `notes_raw` with a
+    structured `[perf_fee_subtype={entry_fee|exit_fee|performance_fee|...}]`
+    prefix.
+  - `EVENT_TYPE_MAP` widened from `(event_type, payout_form_or_qualifier)`
+    to `(event_type, payout_form, perf_fee_subtype)` so dimensions are
+    explicit; `validate_payout_form()` guards the dict at row emit.
+- **`drip_gap_rows[i].as_of` normalized to ISO date string** to match
+  `unit_issues[i].as_of`. Previously inherited the underlying
+  observations parquet dtype.
+
+### Compatibility
+
+- Pure additive on the row schemas (`fund_code`, `code_confidence`,
+  `code_source`). Existing prism columns unaffected.
+- `payout_form` value-space narrowed for `perf_fee` rows from
+  `{entry_fee, exit_fee, performance_fee, None}` to `{None}`. Prism's
+  `record_cash_flow.flow_type` mapping flattens `perf_fee →
+  performance_fee` anyway, so the change is invisible at the
+  typed-tool layer. Pre-v0.7.0 events.parquet rows with the old fee
+  values do NOT round-trip through validation — re-extract them via
+  v0.7.0 to migrate.
+- TypedDict additions are purely declarative (no runtime check). Old
+  callers receiving the dict shape are unaffected.
+
 ## [0.4.0] — 2026-05-21
 
 Adds the AMAC private-fund registry scraper as a subpackage
