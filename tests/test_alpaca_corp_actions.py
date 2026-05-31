@@ -651,3 +651,97 @@ class TestDualPassV080:
         assert len(events) == 1
         assert events[0].declared_date is None
         assert fetcher._trading_client is None  # pyright: ignore[reportAttributeAccessIssue]
+
+
+class TestRestatementFilterV090:
+    """v0.9.0 — Alpaca's deprecated announcements endpoint encodes some
+    retroactive restatement records with `declaration_date =
+    (when-the-restatement-was-issued)` rather than the original
+    board-vote date, producing temporally-incoherent rows where
+    `declared_date > ex_date`. Both the EX_DATE sidecar and the v0.8.0
+    DECLARATION_DATE pass reject those at the boundary."""
+
+    def test_ex_date_sidecar_drops_declared_after_ex(self):
+        """A market-data event for AAPL ex=2020-03-30 plus a sidecar
+        announcement with declaration_date=2021-04-20 (restatement
+        record). Sidecar should drop the restatement; the market-data
+        event keeps declared_date=None."""
+        fetcher = _make_fetcher_with_trading(
+            payload={
+                "cash_dividends": [
+                    FakeDividend(
+                        symbol="AAPL",
+                        rate=0.20,
+                        ex_date=date(2020, 3, 30),
+                        process_date=date(2020, 3, 31),
+                    )
+                ]
+            },
+            announcements=[
+                FakeAnnouncement(
+                    initiating_symbol="AAPL",
+                    ex_date=date(2020, 3, 30),
+                    declaration_date=date(2021, 4, 20),  # restatement record
+                ),
+            ],
+        )
+        events = fetcher.get_corp_actions(
+            symbols=["AAPL"], start=date(2020, 3, 1), end=date(2020, 5, 1)
+        )
+        assert len(events) == 1
+        assert events[0].declared_date is None  # restatement was dropped
+
+    def test_declaration_pass_drops_declared_after_ex(self):
+        """The v0.8.0 DECLARATION_DATE pass also filters restatement
+        records — they'd otherwise land as first-class FetchedCorpAction
+        rows with impossible dec > ex."""
+        fetcher = _make_fetcher_with_trading(
+            payload={"cash_dividends": []},
+            announcements=[
+                FakeAnnouncement(
+                    initiating_symbol="MSFT",
+                    ex_date=date(2024, 9, 15),
+                    declaration_date=date(2026, 5, 20),  # 20-month-late restatement
+                    ca_type="dividend",
+                    ca_sub_type="cash",
+                    cash=0.75,
+                ),
+            ],
+        )
+        # Declaration window for end=2026-05-31 is [2026-04-01, 2026-05-31].
+        # The restatement's declaration_date=2026-05-20 IS in this window,
+        # so it'd be returned by the announcements endpoint. The v0.9.0
+        # filter drops it because dec > ex.
+        events = fetcher.get_corp_actions(
+            symbols=["MSFT"], start=date(2026, 5, 1), end=date(2026, 5, 31)
+        )
+        assert events == []  # no phantom restatement row
+
+    def test_legitimate_declared_equals_ex_is_kept(self):
+        """Edge case: declared == ex is allowed (some companies declare
+        on the morning of ex-date for technical timing). Only strict
+        declared > ex is dropped."""
+        fetcher = _make_fetcher_with_trading(
+            payload={
+                "cash_dividends": [
+                    FakeDividend(
+                        symbol="KO",
+                        rate=0.44,
+                        ex_date=date(2022, 3, 14),
+                        process_date=date(2022, 3, 15),
+                    )
+                ]
+            },
+            announcements=[
+                FakeAnnouncement(
+                    initiating_symbol="KO",
+                    ex_date=date(2022, 3, 14),
+                    declaration_date=date(2022, 3, 14),  # dec == ex; kept
+                ),
+            ],
+        )
+        events = fetcher.get_corp_actions(
+            symbols=["KO"], start=date(2022, 3, 1), end=date(2022, 4, 1)
+        )
+        assert len(events) == 1
+        assert events[0].declared_date == date(2022, 3, 14)

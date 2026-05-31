@@ -264,6 +264,20 @@ class AlpacaCorpActionsFetcher:
                     continue
                 if normalized.symbol not in symbols:
                     continue
+                # v0.9.0: reject restatement records with impossible
+                # `declaration_date > ex_date`. Alpaca's deprecated
+                # announcements endpoint encodes some retroactive
+                # restatement records with `declaration_date =
+                # (when-the-restatement-was-issued)` rather than the
+                # original board-vote date, producing temporally-
+                # incoherent rows (e.g. ex=2020-03-30, declared=2021-04-20).
+                # Filter them out so we don't write known-wrong
+                # declared_date values downstream.
+                if (
+                    normalized.declared_date is not None
+                    and normalized.declared_date > normalized.ex_date
+                ):
+                    continue
                 out.append(normalized)
             cursor = chunk_end + timedelta(days=1)
         return out
@@ -307,6 +321,12 @@ class AlpacaCorpActionsFetcher:
                 ex = getattr(r, "ex_date", None)
                 dec = getattr(r, "declaration_date", None)
                 if not sym or ex is None or dec is None:
+                    continue
+                # v0.9.0: reject restatement records with impossible
+                # `declaration_date > ex_date` — see the matching
+                # filter in `_fetch_recent_announcement_events` for
+                # the diagnosis. Same Alpaca data quirk.
+                if dec > ex:
                     continue
                 lookup[(sym, ex)] = dec
             cursor = chunk_end + timedelta(days=1)
