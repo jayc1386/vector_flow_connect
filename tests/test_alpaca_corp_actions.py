@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -61,11 +61,26 @@ class FakeReverseSplit:
 @dataclass
 class FakeAnnouncement:
     """Mirrors `alpaca.trading.models.CorporateActionAnnouncement` for
-    the field surface the sidecar reads."""
+    the field surface the fetcher reads (sidecar + v0.8.0 dual-pass).
+
+    `ca_type` / `ca_sub_type` are strings here; the production code
+    reads them via `getattr(...).value` and falls back to `str(...)`,
+    so plain strings work as fakes. Default values cover the
+    pre-0.8.0 sidecar-only test path which only needs
+    `(initiating_symbol, ex_date, declaration_date)`."""
 
     initiating_symbol: str
     ex_date: date
     declaration_date: date | None
+    ca_type: str = "dividend"
+    ca_sub_type: str = "cash"
+    cash: float = 0.0
+    old_rate: float = 0.0
+    new_rate: float = 0.0
+    record_date: date | None = None
+    payable_date: date | None = None
+    id: str = ""
+    initiating_original_cusip: str = ""
 
 
 @dataclass
@@ -85,8 +100,10 @@ class FakeCorpActionsClient:
 
 class FakeTradingClient:
     """Stub TradingClient that returns pre-canned announcements per
-    `(since, until)` window. Also records all requests so tests can
-    assert chunking behavior.
+    `(since, until)` window. Filters by `req.date_type`:
+
+    - EX_DATE (default for v0.7.x callers): filter on ex_date
+    - DECLARATION_DATE (v0.8.0 new pass): filter on declaration_date
     """
 
     def __init__(
@@ -98,12 +115,20 @@ class FakeTradingClient:
 
     def get_corporate_announcements(self, req: Any) -> list[FakeAnnouncement]:
         self.requests.append(req)
-        # Return only announcements whose ex_date falls inside the
-        # request window — mirrors the live endpoint's behavior so
-        # chunked tests behave realistically.
         since: date = req.since
         until: date = req.until
-        return [a for a in self._announcements if since <= a.ex_date <= until]
+        date_type_val = getattr(req.date_type, "value", str(req.date_type)).lower()
+        out: list[FakeAnnouncement] = []
+        for a in self._announcements:
+            if date_type_val == "declaration_date":
+                if a.declaration_date is None:
+                    continue
+                key = a.declaration_date
+            else:
+                key = a.ex_date
+            if since <= key <= until:
+                out.append(a)
+        return out
 
 
 def _make_fetcher(payload: dict[str, list[Any]]) -> AlpacaCorpActionsFetcher:
@@ -392,22 +417,25 @@ class TestDeclaredDateSidecar:
 
     def test_announcements_request_chunks_at_90_days(self):
         # Window: 2025-01-01 → 2025-06-01 (~152 days, needs 2 chunks).
+        # Asserts on the EX_DATE-filtered sidecar requests only; the
+        # v0.8.0 DECLARATION_DATE pass also fires (covered by its own tests).
         fetcher = _make_fetcher_with_trading(
             payload={"cash_dividends": []},
             announcements=[],
         )
         fetcher.get_corp_actions(symbols=["AAPL"], start=date(2025, 1, 1), end=date(2025, 6, 1))
         assert fetcher._trading_client is not None  # pyright: ignore[reportAttributeAccessIssue]
-        requests = fetcher._trading_client.requests  # pyright: ignore[reportAttributeAccessIssue]
+        all_requests = fetcher._trading_client.requests  # pyright: ignore[reportAttributeAccessIssue]
+        ex_requests = [r for r in all_requests if r.date_type.value == "ex_date"]
         # Two chunks: [Jan 1, Mar 31] then [Apr 1, Jun 1].
-        assert len(requests) == 2
-        first, second = requests
+        assert len(ex_requests) == 2
+        first, second = ex_requests
         assert first.since == date(2025, 1, 1)
         assert first.until == date(2025, 3, 31)
         assert second.since == date(2025, 4, 1)
         assert second.until == date(2025, 6, 1)
         # Each chunk respects the 90-day cap.
-        for r in requests:
+        for r in ex_requests:
             assert (r.until - r.since).days < 90
 
     def test_announcements_request_single_chunk_when_window_under_90_days(self):
@@ -417,8 +445,9 @@ class TestDeclaredDateSidecar:
         )
         fetcher.get_corp_actions(symbols=["AAPL"], start=date(2025, 1, 1), end=date(2025, 2, 28))
         assert fetcher._trading_client is not None  # pyright: ignore[reportAttributeAccessIssue]
-        requests = fetcher._trading_client.requests  # pyright: ignore[reportAttributeAccessIssue]
-        assert len(requests) == 1
+        all_requests = fetcher._trading_client.requests  # pyright: ignore[reportAttributeAccessIssue]
+        ex_requests = [r for r in all_requests if r.date_type.value == "ex_date"]
+        assert len(ex_requests) == 1
 
     def test_no_trading_client_means_no_announcements_call(self):
         fetcher = _make_fetcher({"cash_dividends": []})
@@ -447,6 +476,10 @@ class TestDeclaredDateSidecar:
                     initiating_symbol="NVDA",
                     ex_date=date(2024, 6, 10),
                     declaration_date=date(2024, 5, 22),
+                    ca_type="split",
+                    ca_sub_type="stock_split",
+                    old_rate=1,
+                    new_rate=10,
                 )
             ],
         )
@@ -454,3 +487,167 @@ class TestDeclaredDateSidecar:
             symbols=["NVDA"], start=date(2024, 6, 1), end=date(2024, 6, 30)
         )
         assert events[0].declared_date == date(2024, 5, 22)
+
+
+class TestDualPassV080:
+    """v0.8.0 — DECLARATION_DATE pass merged with the existing EX_DATE
+    sidecar + market-data flow."""
+
+    def test_future_ex_event_lands_via_declaration_pass(self):
+        """NVDA-shaped case: dividend declared on 5/20 with future
+        ex_date 6/04. The market-data endpoint (ex_date-filtered) won't
+        return it until 6/04, but the DECLARATION_DATE pass picks it up
+        via the announcements endpoint."""
+        fetcher = _make_fetcher_with_trading(
+            payload={"cash_dividends": []},  # market-data sees nothing
+            announcements=[
+                FakeAnnouncement(
+                    initiating_symbol="NVDA",
+                    ex_date=date(2026, 6, 4),  # future
+                    declaration_date=date(2026, 5, 20),
+                    ca_type="dividend",
+                    ca_sub_type="cash",
+                    cash=0.25,
+                ),
+            ],
+        )
+        events = fetcher.get_corp_actions(
+            symbols=["NVDA"], start=date(2026, 5, 1), end=date(2026, 5, 31)
+        )
+        assert len(events) == 1
+        e = events[0]
+        assert e.symbol == "NVDA"
+        assert e.event_type == "dividend"
+        assert e.ex_date == date(2026, 6, 4)
+        assert e.declared_date == date(2026, 5, 20)
+        assert e.cash_amount == Decimal("0.25")
+
+    def test_declaration_pass_fills_null_declared_date(self):
+        """If the EX_DATE sidecar missed a row (e.g. cap-truncated)
+        but the DECLARATION_DATE pass catches it, the merge fills in
+        the declared_date on the existing market-data row."""
+        fetcher = _make_fetcher_with_trading(
+            payload={
+                "cash_dividends": [
+                    FakeDividend(
+                        symbol="AAPL",
+                        rate=0.24,
+                        ex_date=date(2025, 2, 10),
+                        process_date=date(2025, 2, 13),
+                    )
+                ]
+            },
+            announcements=[],
+        )
+        # Manually inject an announcement seen ONLY by the
+        # DECLARATION_DATE pass (declaration_date in lookback window;
+        # ex_date NOT in EX_DATE pass window).
+        # Trick: set declaration_date in DECLARATION_DATE lookback but
+        # ex_date the same as the market-data event so the merge fills.
+        # Simpler: just use the same ex_date — sidecar (EX_DATE filter)
+        # also returns it; both passes find it; merge no-ops.
+        # For a true "sidecar missed" test we'd need the sidecar to
+        # filter it out — use a declaration_date outside [start, end]
+        # but inside [end-60d, end].
+        fetcher._trading_client = FakeTradingClient(  # pyright: ignore[reportAttributeAccessIssue]
+            [
+                FakeAnnouncement(
+                    initiating_symbol="AAPL",
+                    ex_date=date(2025, 2, 10),
+                    declaration_date=date(2025, 1, 20),  # before start=2025-02-01
+                    ca_type="dividend",
+                    ca_sub_type="cash",
+                    cash=0.24,
+                ),
+            ]
+        )
+        events = fetcher.get_corp_actions(
+            symbols=["AAPL"], start=date(2025, 2, 1), end=date(2025, 3, 1)
+        )
+        assert len(events) == 1
+        # EX_DATE sidecar window [2/1, 3/1] doesn't include 1/20 declaration → None.
+        # DECLARATION_DATE pass window [3/1 - 60d = 2024-12-30, 3/1] DOES include 1/20.
+        # Merge fills in 1/20 from announcement pass.
+        assert events[0].declared_date == date(2025, 1, 20)
+
+    def test_declaration_pass_skips_other_symbols(self):
+        """An announcement for a symbol not in the request's `symbols`
+        list must not introduce a phantom event."""
+        fetcher = _make_fetcher_with_trading(
+            payload={"cash_dividends": []},
+            announcements=[
+                FakeAnnouncement(
+                    initiating_symbol="MSFT",  # not in symbols
+                    ex_date=date(2026, 6, 4),
+                    declaration_date=date(2026, 5, 20),
+                    ca_type="dividend",
+                    ca_sub_type="cash",
+                    cash=0.5,
+                ),
+            ],
+        )
+        events = fetcher.get_corp_actions(
+            symbols=["NVDA"], start=date(2026, 5, 1), end=date(2026, 5, 31)
+        )
+        assert events == []
+
+    def test_declaration_pass_window_is_60_days_back_from_end(self):
+        """An announcement declared more than 60 days before `end` is
+        outside the DECLARATION_DATE pass window and not picked up."""
+        fetcher = _make_fetcher_with_trading(
+            payload={"cash_dividends": []},
+            announcements=[
+                FakeAnnouncement(
+                    initiating_symbol="NVDA",
+                    ex_date=date(2026, 6, 4),
+                    declaration_date=date(2026, 3, 1),  # >60d before end=2026-05-31
+                    ca_type="dividend",
+                    ca_sub_type="cash",
+                    cash=0.25,
+                ),
+            ],
+        )
+        events = fetcher.get_corp_actions(
+            symbols=["NVDA"], start=date(2026, 5, 1), end=date(2026, 5, 31)
+        )
+        # Declaration 3/1 is before [5/31 - 60d = 4/1, 5/31] lookback.
+        assert events == []
+
+    def test_dual_pass_fires_declaration_date_request(self):
+        """Verifies the v0.8.0 DECLARATION_DATE request is actually
+        sent to the trading client (orthogonal to the EX_DATE sidecar)."""
+        fetcher = _make_fetcher_with_trading(
+            payload={"cash_dividends": []},
+            announcements=[],
+        )
+        fetcher.get_corp_actions(symbols=["AAPL"], start=date(2025, 1, 1), end=date(2025, 2, 28))
+        assert fetcher._trading_client is not None  # pyright: ignore[reportAttributeAccessIssue]
+        all_requests = fetcher._trading_client.requests  # pyright: ignore[reportAttributeAccessIssue]
+        decl_requests = [r for r in all_requests if r.date_type.value == "declaration_date"]
+        assert len(decl_requests) >= 1
+        # The DECLARATION_DATE pass window is [end - 60d, end].
+        decl_req = decl_requests[0]
+        assert decl_req.since == date(2025, 2, 28) - timedelta(days=60)
+        assert decl_req.until == date(2025, 2, 28)
+
+    def test_no_trading_client_skips_declaration_pass(self):
+        """When trading credentials are absent the DECLARATION_DATE
+        pass is skipped along with the EX_DATE sidecar."""
+        fetcher = _make_fetcher(
+            payload={
+                "cash_dividends": [
+                    FakeDividend(
+                        symbol="AAPL",
+                        rate=0.24,
+                        ex_date=date(2025, 2, 10),
+                        process_date=date(2025, 2, 13),
+                    )
+                ]
+            }
+        )
+        events = fetcher.get_corp_actions(
+            symbols=["AAPL"], start=date(2025, 2, 1), end=date(2025, 3, 1)
+        )
+        assert len(events) == 1
+        assert events[0].declared_date is None
+        assert fetcher._trading_client is None  # pyright: ignore[reportAttributeAccessIssue]
