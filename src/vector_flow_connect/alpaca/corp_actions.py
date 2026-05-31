@@ -52,6 +52,14 @@ _REVERSE_SPLIT_KEYS = {"reverse_splits", "reverse_split"}
 # Announcements endpoint enforces a 90-day window cap per call.
 _ANNOUNCEMENTS_CHUNK_DAYS = 90
 
+# Declaration-date pass lookback (v0.8.0). The DECLARATION_DATE-filtered
+# announcements query covers `[end - _DECLARATION_LOOKBACK_DAYS, end]`,
+# catching recent declarations with potentially-future ex_dates that the
+# EX_DATE-filtered market-data endpoint won't return until ex_date
+# arrives. 60 days covers the typical 14-30d announcement→ex window
+# with margin.
+_DECLARATION_LOOKBACK_DAYS = 60
+
 
 class FetchedCorpAction(BaseModel):
     """One corp-action event as returned by a `CorpActionsFetcher`.
@@ -137,6 +145,27 @@ class AlpacaCorpActionsFetcher:
         start: date,
         end: date,
     ) -> list[FetchedCorpAction]:
+        """Fetch corp actions over `[start, end]` (ex_date filter on the
+        market-data endpoint) and merge with recent declarations from the
+        trading-API announcements endpoint (DECLARATION_DATE filter, v0.8.0).
+
+        Two passes when trading credentials are configured:
+        1. Market-data endpoint with `start`/`end` ex_date filter →
+           historical events plus declared_date augmentation via the
+           existing EX_DATE-filtered sidecar.
+        2. Announcements endpoint with DECLARATION_DATE filter over
+           `[end - _DECLARATION_LOOKBACK_DAYS, end]` → recent
+           declarations regardless of ex_date. Catches future-ex events
+           that the market-data endpoint won't return until ex_date
+           arrives.
+
+        Merge policy: market-data events win on `(symbol, ex_date)`
+        collisions (more complete field surface). The announcements
+        pass fills `declared_date` when the market-data row's is None
+        (catches cap-truncation in the EX_DATE sidecar). Future-ex
+        events only present in the announcements pass land as
+        first-class rows.
+        """
         from alpaca.data.enums import CorporateActionsType
         from alpaca.data.requests import CorporateActionsRequest
 
@@ -171,6 +200,72 @@ class AlpacaCorpActionsFetcher:
                 fetched = _normalize_alpaca_event(e, event_type, declared_dates=declared_dates)
                 if fetched is not None:
                     out.append(fetched)
+
+        # v0.8.0: second pass for recent declarations (future-ex events).
+        # Only runs when trading credentials are configured (same gate as
+        # the existing sidecar).
+        if self._trading_client is not None:
+            announcement_events = self._fetch_recent_announcement_events(
+                symbols=set(symbols),
+                since=end - timedelta(days=_DECLARATION_LOOKBACK_DAYS),
+                until=end,
+            )
+            out = _merge_announcement_events(out, announcement_events)
+        return out
+
+    def _fetch_recent_announcement_events(
+        self,
+        *,
+        symbols: set[str],
+        since: date,
+        until: date,
+    ) -> list[FetchedCorpAction]:
+        """v0.8.0 — DECLARATION_DATE pass.
+
+        Query the trading-API announcements endpoint with
+        `date_type=CorporateActionDateType.DECLARATION_DATE` over
+        `[since, until]`. Returns full `FetchedCorpAction` events
+        (dividends + forward/reverse splits) for symbols in `symbols`.
+
+        The endpoint is universe-wide (no multi-symbol filter on the
+        request shape); we filter to `symbols` in Python. Chunked at
+        ≤90 day boundaries to respect the endpoint's documented cap,
+        same shape as `_fetch_declared_dates`.
+
+        Stock-dividend and merger/spinoff sub-types are skipped —
+        out of v1 scope (matches the market-data endpoint's filter).
+        """
+        from alpaca.trading.enums import (
+            CorporateActionDateType,
+            CorporateActionType,
+        )
+        from alpaca.trading.requests import GetCorporateAnnouncementsRequest
+
+        assert self._trading_client is not None
+
+        out: list[FetchedCorpAction] = []
+        chunk_size = timedelta(days=_ANNOUNCEMENTS_CHUNK_DAYS - 1)  # since/until inclusive
+        cursor = since
+        while cursor <= until:
+            chunk_end = min(cursor + chunk_size, until)
+            req = GetCorporateAnnouncementsRequest(
+                ca_types=[
+                    CorporateActionType.DIVIDEND,
+                    CorporateActionType.SPLIT,
+                ],
+                since=cursor,
+                until=chunk_end,
+                date_type=CorporateActionDateType.DECLARATION_DATE,
+            )
+            results = self._trading_client.get_corporate_announcements(req)
+            for r in results:
+                normalized = _normalize_announcement(r)
+                if normalized is None:
+                    continue
+                if normalized.symbol not in symbols:
+                    continue
+                out.append(normalized)
+            cursor = chunk_end + timedelta(days=1)
         return out
 
     def _fetch_declared_dates(self, *, start: date, end: date) -> dict[tuple[str, date], date]:
@@ -216,6 +311,114 @@ class AlpacaCorpActionsFetcher:
                 lookup[(sym, ex)] = dec
             cursor = chunk_end + timedelta(days=1)
         return lookup
+
+
+def _normalize_announcement(announcement: Any) -> FetchedCorpAction | None:
+    """v0.8.0 — convert a `CorporateActionAnnouncement` from the
+    trading-API announcements endpoint into our vendor-agnostic
+    `FetchedCorpAction` shape.
+
+    Returns None when:
+    - ex_date is missing (cannot key into smart-delta)
+    - ca_type is not dividend/split (out of v1 scope)
+    - sub_type is stock/unit (stock dividends + unit splits — out of
+      v1 scope; consistent with `get_corp_actions` market-data filter)
+    """
+    try:
+        symbol = getattr(announcement, "initiating_symbol", None)
+        ex_date_val = getattr(announcement, "ex_date", None)
+        if not symbol or ex_date_val is None:
+            return None
+
+        ca_type_raw = getattr(announcement, "ca_type", None)
+        ca_type_str = getattr(ca_type_raw, "value", str(ca_type_raw)).lower()
+        ca_sub_raw = getattr(announcement, "ca_sub_type", None)
+        ca_sub_str = getattr(ca_sub_raw, "value", str(ca_sub_raw)).lower()
+
+        if ca_type_str == "dividend":
+            if ca_sub_str != "cash":
+                # stock dividends out of scope
+                return None
+            event_type: Literal["dividend", "split"] = "dividend"
+        elif ca_type_str == "split":
+            if ca_sub_str in {"unit_split", "recapitalization"}:
+                return None
+            event_type = "split"
+        else:
+            return None
+
+        declared_date_val = getattr(announcement, "declaration_date", None)
+        record_date_val = getattr(announcement, "record_date", None)
+        payable_date_val = getattr(announcement, "payable_date", None)
+
+        external_id_raw = getattr(announcement, "id", None)
+        external_id = str(external_id_raw) if external_id_raw is not None else None
+
+        cusip_raw = getattr(announcement, "initiating_original_cusip", None)
+        cusip = cusip_raw if cusip_raw else None
+
+        if event_type == "dividend":
+            cash = getattr(announcement, "cash", None)
+            if cash is None:
+                return None
+            return FetchedCorpAction(
+                symbol=str(symbol),
+                event_type="dividend",
+                ex_date=ex_date_val,
+                process_date=ex_date_val,  # announcements endpoint has no process_date; default to ex_date
+                declared_date=declared_date_val,
+                record_date=record_date_val,
+                payable_date=payable_date_val,
+                cash_amount=Decimal(str(cash)),
+                cusip=cusip,
+                external_id=external_id,
+            )
+
+        # split
+        old_rate = getattr(announcement, "old_rate", None)
+        new_rate = getattr(announcement, "new_rate", None)
+        if old_rate is None or new_rate is None:
+            return None
+        return FetchedCorpAction(
+            symbol=str(symbol),
+            event_type="split",
+            ex_date=ex_date_val,
+            process_date=ex_date_val,
+            declared_date=declared_date_val,
+            record_date=record_date_val,
+            payable_date=payable_date_val,
+            split_ratio_from=Decimal(str(old_rate)),
+            split_ratio_to=Decimal(str(new_rate)),
+            cusip=cusip,
+            external_id=external_id,
+        )
+    except (AttributeError, ValueError, TypeError):
+        return None
+
+
+def _merge_announcement_events(
+    market_data_events: list[FetchedCorpAction],
+    announcement_events: list[FetchedCorpAction],
+) -> list[FetchedCorpAction]:
+    """v0.8.0 — merge the two passes on `(symbol, ex_date)`.
+
+    Market-data events win on collisions (more complete field surface
+    from the historical endpoint). Announcement-pass fills
+    `declared_date` when the market-data row's is None — catches
+    cap-truncation in the EX_DATE-filtered sidecar. Future-ex events
+    only present in the announcements pass land as first-class rows.
+    """
+    by_key: dict[tuple[str, date], FetchedCorpAction] = {
+        (e.symbol, e.ex_date): e for e in market_data_events
+    }
+    for ann in announcement_events:
+        key = (ann.symbol, ann.ex_date)
+        existing = by_key.get(key)
+        if existing is None:
+            by_key[key] = ann
+        elif existing.declared_date is None and ann.declared_date is not None:
+            by_key[key] = existing.model_copy(update={"declared_date": ann.declared_date})
+    return list(by_key.values())
 
 
 def _classify_alpaca_type(alpaca_type_key: str) -> Literal["dividend", "split"] | None:
