@@ -158,7 +158,7 @@ def test_rest_client_drains_next_url_and_reattaches_apikey() -> None:
     client = PolygonRestClient(
         api_key="SECRET",
         http_client=httpx.Client(transport=httpx.MockTransport(handler)),
-        rate_limit_sleep_secs=0.0,
+        min_request_interval_secs=0.0,
     )
     rows = list(client.paginate("/v3/reference/dividends", {"limit": 1000}))
     assert [r["ticker"] for r in rows] == ["AAPL", "MSFT"]
@@ -166,3 +166,78 @@ def test_rest_client_drains_next_url_and_reattaches_apikey() -> None:
     # apiKey present on BOTH requests (the next_url reattach gotcha).
     assert all("apiKey=SECRET" in u for u in seen_urls)
     assert "cursor=PAGE2" in seen_urls[1]
+
+
+def test_throttle_spaces_requests_across_paginate_calls() -> None:
+    """The min-interval throttle is stateful: it paces every request,
+    including the FIRST of each paginate() call (the inter-call / per-
+    symbol boundary), not just between pages of one call."""
+    fake_now = [0.0]
+    sleeps: list[float] = []
+
+    def clock() -> float:
+        return fake_now[0]
+
+    def sleep(secs: float) -> None:
+        sleeps.append(secs)
+        fake_now[0] += secs  # advancing the clock models the wait
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        fake_now[0] += 0.01  # each request takes a hair of wall-clock
+        return httpx.Response(200, json={"results": [{"ticker": "X"}]})
+
+    client = PolygonRestClient(
+        api_key="K",
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+        min_request_interval_secs=12.0,
+        clock=clock,
+        sleep=sleep,
+    )
+    # Two separate paginate() calls (mirrors dividends→splits / per-symbol).
+    list(client.paginate("/a", {}))
+    list(client.paginate("/b", {}))
+    # First request: no wait. Second (across the call boundary): throttled.
+    assert len(sleeps) == 1
+    assert sleeps[0] >= 11.9  # ~12s spacing maintained across the boundary
+
+
+def test_throttle_bypassed_when_interval_zero() -> None:
+    """`min_request_interval_secs=0` is the paid-tier bypass lever."""
+    sleeps: list[float] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"results": [{"ticker": "X"}]})
+
+    client = PolygonRestClient(
+        api_key="K",
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+        min_request_interval_secs=0.0,
+        sleep=lambda s: sleeps.append(s),
+    )
+    list(client.paginate("/a", {}))
+    list(client.paginate("/b", {}))
+    assert sleeps == []  # no throttling at all
+
+
+def test_get_retries_on_429_then_succeeds() -> None:
+    """A 429 is retried with backoff (honoring Retry-After) and recovers."""
+    calls: list[int] = []
+    sleeps: list[float] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        if len(calls) == 1:
+            return httpx.Response(429, headers={"Retry-After": "2"}, json={})
+        return httpx.Response(200, json={"results": [{"ticker": "AAPL"}]})
+
+    client = PolygonRestClient(
+        api_key="K",
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+        min_request_interval_secs=0.0,
+        max_retries=3,
+        sleep=lambda s: sleeps.append(s),
+    )
+    rows = list(client.paginate("/v3/reference/dividends", {}))
+    assert [r["ticker"] for r in rows] == ["AAPL"]
+    assert len(calls) == 2  # one 429, one success
+    assert sleeps == [2.0]  # honored Retry-After

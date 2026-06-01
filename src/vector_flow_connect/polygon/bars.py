@@ -39,12 +39,14 @@ class PolygonBarFetcher:
         api_key: str | None = None,
         client: Any | None = None,
         adjusted: bool = True,
-        rate_limit_sleep_secs: float = 12.0,
+        min_request_interval_secs: float = 12.0,
     ) -> None:
         if client is None:
             if not api_key:
                 raise ValueError("api_key is required when no client is injected")
-            client = PolygonRestClient(api_key=api_key, rate_limit_sleep_secs=rate_limit_sleep_secs)
+            client = PolygonRestClient(
+                api_key=api_key, min_request_interval_secs=min_request_interval_secs
+            )
         self._client = client
         self._adjusted = adjusted
 
