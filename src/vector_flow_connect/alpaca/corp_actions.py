@@ -180,6 +180,18 @@ class AlpacaCorpActionsFetcher:
             ],
             start=start,
             end=end,
+            # v0.10.0: `limit=None` drains every page. alpaca-py's
+            # `CorporateActionsRequest.limit` defaults to 1000, and its
+            # `_get_marketdata` loop honors that default — it paginates
+            # via `next_page_token` at 1000/page but stops once
+            # `total_items >= limit`, so the default silently truncates a
+            # wide query at the first 1000 events (ASC by date) even
+            # though more pages exist. `to_request_fields()` strips
+            # None-valued fields (`model_dump(exclude_none=True)`), so
+            # `limit=None` omits the param entirely and lets the loop run
+            # until `next_page_token is None`. Without it, universe-wide
+            # multi-year backfills lose every event past the first 1000.
+            limit=None,
         )
         result = self._client.get_corporate_actions(req)
 

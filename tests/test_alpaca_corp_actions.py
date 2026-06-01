@@ -284,6 +284,20 @@ class TestAlpacaCorpActionsFetcher:
         assert events == []
         assert fetcher._client.last_request is None  # pyright: ignore[reportAttributeAccessIssue]
 
+    def test_request_limit_is_none_for_full_pagination(self):
+        """v0.10.0 regression guard: the market-data request must carry
+        `limit=None` so alpaca-py drains every `next_page_token` page
+        rather than stopping at its 1000-default. This is the single
+        lever controlling pagination — alpaca-py's `_get_marketdata`
+        loop breaks once `total_items >= request.limit`, so a non-None
+        limit silently truncates wide universe-by-year queries at 1000
+        events. Pinning it here prevents a future edit from
+        re-introducing the cap."""
+        fetcher = _make_fetcher({"cash_dividends": []})
+        fetcher.get_corp_actions(symbols=["AAPL"], start=date(2020, 1, 1), end=date(2025, 12, 31))
+        assert fetcher._client.last_request is not None  # pyright: ignore[reportAttributeAccessIssue]
+        assert fetcher._client.last_request.limit is None  # pyright: ignore[reportAttributeAccessIssue]
+
     def test_pydantic_shape_locked(self):
         import pytest
         from pydantic import ValidationError
