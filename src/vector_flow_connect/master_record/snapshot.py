@@ -277,6 +277,13 @@ def parse_sheet(
             # Skip blank rows but don't stop — early-era sheets have a
             # blank between lots and 总额 sometimes.
             continue
+        if _as_date(first_val) is not None:
+            # A bare date in the 持有标的 column is a section-divider title
+            # for the asset-class summary table below (e.g. cell A30 holds
+            # the snapshot date), not a holding. Skip it — otherwise it
+            # mints a phantom position keyed on the stringified date. Don't
+            # break: the 类别 summary header still follows and must be found.
+            continue
         first_clean = first_text.strip()
         if first_clean in SUMMARY_HEADER_FIRST_COL:
             summary_header_row_idx = row_idx

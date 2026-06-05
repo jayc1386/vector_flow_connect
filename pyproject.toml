@@ -1,6 +1,6 @@
 [project]
 name = "vector-flow-connect"
-version = "0.11.1"
+version = "0.11.2"
 description = "Shared vendor-API connectors (shape coercion only) for prism + quant_hive"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -97,7 +97,7 @@ docstring-code-format = true
 
 [tool.pyright]
 include = ["src", "tests"]
-exclude = ["**/__pycache__"]
+exclude = ["**/__pycache__", "**/.ipynb_checkpoints"]
 pythonVersion = "3.10"
 typeCheckingMode = "standard"
 reportMissingImports = "error"
