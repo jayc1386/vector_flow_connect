@@ -1,0 +1,10 @@
+event_id,event_date,fund_code,fund_name,share_class,action,quantity,nav,amount,currency,pool,source_ref,note
+E0000000001,2024-01-02,CASH,现金,,DEPOSIT,,,100000.00,CNY,留本,synthetic(期初),
+E0000000002,2024-01-05,000001,合成基金甲,,BUY,10000.0000,1.25,12500.00,CNY,,synthetic(held),
+E0000000003,2024-03-15,000001,合成基金甲,,DIVIDEND,,,500.00,CNY,,synthetic(分红),合成基金甲现金分红
+E0000000004,2024-04-01,CASH,现金,,INTEREST,,,41.50,CNY,,synthetic(利息),
+E0000000005,2024-05-20,S99999,合成私募乙,C,DRIP,2828.1100,,,CNY,,synthetic(累计红利再投资),"CUMULATIVE DRIP units=2,828.11; per-event dates not in source; cash-neutral"
+E0000000006,2024-06-10,000001,合成基金甲,,SELL,-4000.0000,1.3000,5200.00,CNY,,synthetic(redemption),proceeds=cost+realized_return(200.00)
+E0000000007,2024-06-13,S99999,合成私募乙,C,FEE,,,30.00,CNY,,synthetic(held),GUESSED subscription fee — not itemized in source
+E0000000008,2024-12-18,CASH,现金,,WITHDRAW,,,1000.00,CNY,留本,synthetic(外部资金),
+E0000000009,2025-01-15,S99999,合成私募乙,C,PERF_FEE,,,100.00,CNY,,synthetic(业绩报酬),

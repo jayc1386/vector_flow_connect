@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.0] — 2026-06-10
+
+New `vector_flow_connect.action_log` subpackage for prism plan 0059
+(DKU action-log ingest + lot-based analytics), per the binding
+prism-vfc split-rule. Contract: dkup `ACTION_LOG_SPEC.md` (relay
+green-light 2026-06-10T13:15Z).
+
+### Added
+
+- **`action_log.canonical`**: frozen `ActionLogEvent` Pydantic model
+  (13-column CSV schema verbatim; 9-action vocabulary incl.
+  `PERF_FEE`; `pool` Literal 留本/非留本; content-hash `event_id`
+  pattern `E[0-9a-f]{10}`), `RowFinding`, `SOURCE_ID =
+  "dku_action_log_v1"`, `SCHEMA_VERSION = "dku-action-log-v1"`.
+  `needs_dku_confirm` deliberately not modeled (temporary dkup review
+  column, not in the spec).
+- **`action_log.loader`**: `load_action_log(path)` — utf-8-sig,
+  CRLF-tolerant, hard-fail (`ActionLogSchemaError`) on header drift /
+  non-numeric decimals / model-shape violations; blank→None coercion;
+  file order preserved.
+- **`action_log.validate`**: `validate_events(events)` — pure
+  row-level checks: R-V2 arithmetic with nav-quantization-aware
+  tolerance `max(rv2_abs_tol, |qty| * half_ulp(nav))` (real SELL
+  rows sit ¥1-17 off at a ¥22 bound from 4dp nav rounding);
+  quantity-only cumulative DRIP = first-class info finding
+  (`drip_quantity_only`); duplicate event_ids; per-action
+  required-field shape; pool placement; CASH-row action sanity;
+  non-CNY warning; GUESSED/tentative/CONFLICT note markers →
+  `pending_dku_confirmation`. R-V1/R-V4 are replay-level
+  (prism-side); R-V5 deferred (needs prior-ingest state).
+
 ## [0.7.0] — 2026-05-23
 
 Canonical-emit polish + prism plan 0040 typed-tool seam prep. Lifts
