@@ -16,10 +16,12 @@ Row-shape notes baked into the model:
   the original's sign).
 - ``amount`` is positive by spec; direction comes from ``action``.
   Negative amounts appear only on reversing rows.
-- ``pool`` (资金池, 留本/非留本) is set on DEPOSIT/WITHDRAW only;
-  blank elsewhere means "generalized". 可投资产 = 留本 + 非留本.
+- ``pool`` (资金池) is set on DEPOSIT/WITHDRAW and on internal events
+  funded by a non-default pool (2026-06-11b: the three 专户 BUYs carry
+  pool=非留本); blank means "generalized". 可投资产 = 留本 + 非留本.
 - The dkup-side review column ``needs_dku_confirm`` is NOT part of the
-  contract and is deliberately not modeled.
+  contract and is deliberately not modeled (the loader drops it when
+  present).
 """
 
 from __future__ import annotations
@@ -49,7 +51,10 @@ Action = Literal[
     "PERF_FEE",  # 业绩报酬 — may be a unit haircut rather than cash
 ]
 
-Pool = Literal["留本", "非留本"]
+# 资金池 vocabulary is PROVISIONAL (spec 2026-06-11): DKU's real
+# partition is >=3 buckets (留本 / 专户 / pure cash-management) and the
+# naming ruling is pending — free text by design, never an enum.
+Pool = str
 
 CASH_FUND_CODE = "CASH"
 

@@ -20,6 +20,10 @@ from .canonical import COLUMNS, ActionLogEvent
 
 _DECIMAL_FIELDS = ("quantity", "nav", "amount")
 
+# dkup-side review metadata, sanctioned but not part of the contract
+# (see canonical module docstring) — dropped on load.
+_IGNORED_COLUMNS = ("needs_dku_confirm",)
+
 
 class ActionLogSchemaError(ValueError):
     """Raised when the CSV header or a row breaks the ACTION_LOG_SPEC schema."""
@@ -38,7 +42,9 @@ def load_action_log(path: str | Path) -> list[ActionLogEvent]:
     events: list[ActionLogEvent] = []
     with path.open(encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
-        fieldnames = [f.strip() for f in (reader.fieldnames or [])]
+        fieldnames = [
+            f.strip() for f in (reader.fieldnames or []) if f.strip() not in _IGNORED_COLUMNS
+        ]
         if fieldnames != COLUMNS:
             missing = [c for c in COLUMNS if c not in fieldnames]
             unknown = [c for c in fieldnames if c not in COLUMNS]
@@ -47,7 +53,9 @@ def load_action_log(path: str | Path) -> list[ActionLogEvent]:
                 f"missing={missing} unknown={unknown} (got {fieldnames})"
             )
         for lineno, row in enumerate(reader, start=2):
-            cleaned: dict[str, object] = {k: _clean(v) for k, v in row.items()}
+            cleaned: dict[str, object] = {
+                k: _clean(v) for k, v in row.items() if k not in _IGNORED_COLUMNS
+            }
             for field in _DECIMAL_FIELDS:
                 raw = cleaned[field]
                 if raw is not None:

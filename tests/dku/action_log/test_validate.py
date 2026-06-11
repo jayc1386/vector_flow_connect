@@ -76,8 +76,10 @@ def test_quantity_only_drip_is_info_not_error() -> None:
     assert findings[0].severity == "info"
 
 
-def test_pool_on_buy_is_warning_and_missing_pool_on_deposit_is_warning() -> None:
-    misplaced = _event(pool="留本")
+def test_pooled_buy_is_clean_and_missing_pool_on_deposit_is_warning() -> None:
+    # Spec 2026-06-11b: internal events funded by a non-default pool
+    # carry the tag (the 专户 BUYs) — no lint. Vocabulary is free text.
+    pooled_buy = _event(pool="非留本")
     deposit = _event(
         event_id="Ecccccccccc",
         fund_code="CASH",
@@ -86,8 +88,32 @@ def test_pool_on_buy_is_warning_and_missing_pool_on_deposit_is_warning() -> None
         nav=None,
         amount=Decimal("1000.00"),
     )
-    codes = {f.code for f in validate_events([misplaced, deposit])}
-    assert {"pool_unexpected", "pool_missing"} <= codes
+    findings = validate_events([pooled_buy, deposit])
+    codes = {f.code for f in findings}
+    assert "pool_missing" in codes
+    assert "pool_unexpected" not in codes
+
+
+def test_unpriced_buy_is_info_not_error() -> None:
+    # 专户 pre-statement shape (MANIFEST 2026-06-11b): amount-only BUY.
+    zhuanhu = _event(quantity=None, nav=None, amount=Decimal("10000000.00"), pool="非留本")
+    findings = validate_events([zhuanhu])
+    assert [f.code for f in findings] == ["buy_unpriced"]
+    assert findings[0].severity == "info"
+
+
+def test_provisional_pool_strings_accepted() -> None:
+    # Pool is free text by design (>=3-bucket partition pending DKU naming).
+    future_bucket = _event(
+        event_id="Edddddddddd",
+        fund_code="CASH",
+        action="DEPOSIT",
+        quantity=None,
+        nav=None,
+        amount=Decimal("1000.00"),
+        pool="专户",
+    )
+    assert validate_events([future_bucket]) == []
 
 
 def test_cash_unit_action_is_error() -> None:

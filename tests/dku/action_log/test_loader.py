@@ -68,10 +68,23 @@ def test_utf8_sig_and_crlf_tolerated(tmp_path: Path) -> None:
 def test_header_drift_raises(tmp_path: Path) -> None:
     target = tmp_path / "log.csv"
     lines = FIXTURE.read_text(encoding="utf-8").splitlines()
-    lines[0] = lines[0] + ",needs_dku_confirm"
+    lines[0] = lines[0] + ",surprise_column"
     target.write_text("\n".join(lines), encoding="utf-8")
-    with pytest.raises(ActionLogSchemaError, match="needs_dku_confirm"):
+    with pytest.raises(ActionLogSchemaError, match="surprise_column"):
         load_action_log(target)
+
+
+def test_needs_dku_confirm_column_tolerated_and_dropped(tmp_path: Path) -> None:
+    # dkup's review column ships on the real artifact (2026-06-11b);
+    # sanctioned but not contract — values dropped on load.
+    target = tmp_path / "log.csv"
+    lines = FIXTURE.read_text(encoding="utf-8").splitlines()
+    lines[0] = lines[0] + ",needs_dku_confirm"
+    lines[1] = lines[1] + ",Y"
+    target.write_text("\n".join(lines[:2] + [line + "," for line in lines[2:]]), encoding="utf-8")
+    events = load_action_log(target)
+    assert len(events) == 9
+    assert not hasattr(events[0], "needs_dku_confirm")
 
 
 def test_unknown_action_raises(tmp_path: Path) -> None:

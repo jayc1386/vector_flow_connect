@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.1] — 2026-06-11
+
+`dku.action_log` alignment with ACTION_LOG_SPEC 2026-06-11b (prism
+plan 0063).
+
+### Changed
+
+- **`Pool` is free text** (was `Literal["留本", "非留本"]`): the
+  资金池 vocabulary is PROVISIONAL — DKU's real partition is ≥3
+  buckets (留本 / 专户 / pure cash-management) and the naming ruling
+  is pending. Never an enum.
+- **Pool tags accepted on any action**: the `pool_unexpected` lint is
+  retired — spec 2026-06-11b sets pool on internal events funded by a
+  non-default pool (the three 专户 BUYs carry pool=非留本).
+  Misattribution surfaces downstream in the pool-aware cash walk.
+- **Amount-only BUYs are first-class** (`buy_unpriced`, info): the
+  专户 cost-only pre-statement shape (quantity/nav blank pending the
+  fund's first statement) no longer trips `missing_required_field`.
+- **Loader tolerates `needs_dku_confirm`**: dkup's review column ships
+  on the real artifact; sanctioned but not contract — dropped on load.
+  All other header drift still raises.
+
 ## [0.14.0] — 2026-06-11
 
 New `vector_flow_connect.dku.returns_calc` subpackage for prism plan

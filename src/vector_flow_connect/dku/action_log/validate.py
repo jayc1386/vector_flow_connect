@@ -8,10 +8,15 @@ Covered here (no I/O, no replay state):
   (nav)``; the fixture's real SELL rows sit ¥1-17 off at a ¥22 bound.
   An absolute floor (`rv2_abs_tol`) covers tiny-quantity rows.
 - Required-field shape per action (BUY/SELL need quantity + amount;
-  the quantity-only DRIP is first-class and tagged info, not error).
-- pool placement (DEPOSIT/WITHDRAW only), CASH-row action sanity,
+  the quantity-only DRIP and the amount-only "unpriced BUY" — 专户
+  cost-only positions pending a first statement, MANIFEST 2026-06-11b —
+  are first-class and tagged info, not error).
+- pool presence on DEPOSIT/WITHDRAW, CASH-row action sanity,
   duplicate event_ids, non-CNY currency, pending-confirmation note
-  markers (GUESSED / tentative / CONFLICT).
+  markers (GUESSED / tentative / CONFLICT). There is deliberately no
+  "pool on the wrong action" lint: the 资金池 vocabulary and placement
+  are provisional (internal events may legitimately carry a pool tag),
+  and misattribution surfaces downstream in the pool-aware cash walk.
 
 NOT here (replay-level, prism-side): R-V1 cash-never-negative,
 R-V4 redemption ≤ held. R-V5 (append-only hash check across ingests)
@@ -66,6 +71,12 @@ def validate_events(
             and event.nav is None
             and event.amount is None
         )
+        is_unpriced_buy = (
+            event.action == "BUY"
+            and event.quantity is None
+            and event.nav is None
+            and event.amount is not None
+        )
         if is_quantity_only_drip:
             findings.append(
                 RowFinding(
@@ -77,6 +88,19 @@ def validate_events(
                         "per relay 2026-06-10) — units in, cash-neutral, zero cost"
                     ),
                     payload={"quantity": str(event.quantity)},
+                )
+            )
+        elif is_unpriced_buy:
+            findings.append(
+                RowFinding(
+                    event_id=event.event_id,
+                    code="buy_unpriced",
+                    severity="info",
+                    message=(
+                        "amount-only BUY (cost-only position; units/nav pending the "
+                        "fund's first statement — 专户 shape per MANIFEST 2026-06-11b)"
+                    ),
+                    payload={"amount": str(event.amount), "pool": event.pool},
                 )
             )
         elif event.action in _UNIT_ACTIONS and (event.quantity is None or event.amount is None):
@@ -121,16 +145,6 @@ def validate_events(
                     )
                 )
 
-        if event.pool is not None and event.action not in _POOL_ACTIONS:
-            findings.append(
-                RowFinding(
-                    event_id=event.event_id,
-                    code="pool_unexpected",
-                    severity="warning",
-                    message=f"pool={event.pool} on {event.action} (DEPOSIT/WITHDRAW only)",
-                    payload={"action": event.action, "pool": event.pool},
-                )
-            )
         if event.pool is None and event.action in _POOL_ACTIONS:
             findings.append(
                 RowFinding(
