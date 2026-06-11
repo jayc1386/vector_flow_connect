@@ -30,6 +30,14 @@ DataQualityFlag = Literal[
     "derived_from_notes",
     "unit_mismatch",
     "nav_mismatch",
+    # NAV differs between the 台账 (authoritative) and the manager PDF, but
+    # *expectedly* — the two artifacts report different share classes / NAV
+    # bases (net-of-fee vs gross/product-level). DKU confirmed 2026-05-30
+    # this is by-design for 睿郡/翊安/禾禧; the expectations CSV is
+    # client-owned reference data passed in by path (see
+    # `reconcile.load_expected_share_class_divergence_funds`). NOT a
+    # data-quality defect — it annotates without masking real issues.
+    "share_class_net_vs_gross_nav",
     "cash_share_mismatch",
     "dividend_fail",
     "drip_gap",
@@ -38,20 +46,24 @@ DataQualityFlag = Literal[
 DATA_QUALITY_FLAG_VALUES: frozenset[str] = frozenset(DataQualityFlag.__args__)  # type: ignore[attr-defined]
 
 # Precedence when a row matches multiple issue classes — higher wins.
-# `clean` is the default and lowest precedence. Derivation lineage flags
-# (`derived_from_*`) live just above `clean` — they describe the parse
+# `clean` is the default and lowest precedence.
+# `share_class_net_vs_gross_nav` is expected behavior (not a defect), so
+# it ranks just above `clean` (dkup parity): visible, but never overrides
+# a genuine finding on the same row. Derivation lineage flags
+# (`derived_from_*`) live just above that — they describe the parse
 # path, not a data-quality issue, so any real issue (cash_share_mismatch,
 # unit_mismatch, ...) outranks them.
 _DATA_QUALITY_PRECEDENCE: dict[str, int] = {
     "clean": 0,
-    "derived_from_events_log": 1,
-    "derived_from_notes": 2,
-    "confidence_fuzzy": 3,
-    "dividend_fail": 4,
-    "drip_gap": 5,
-    "cash_share_mismatch": 6,
-    "unit_mismatch": 7,
-    "nav_mismatch": 8,
+    "share_class_net_vs_gross_nav": 1,
+    "derived_from_events_log": 2,
+    "derived_from_notes": 3,
+    "confidence_fuzzy": 4,
+    "dividend_fail": 5,
+    "drip_gap": 6,
+    "cash_share_mismatch": 7,
+    "unit_mismatch": 8,
+    "nav_mismatch": 9,
 }
 
 

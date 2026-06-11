@@ -22,6 +22,38 @@ import pandas as pd
 from ._inherited_canonical_contract import resolve_data_quality_flag
 from .canonical import SCHEMA_VERSION, SOURCE_ID
 
+
+def load_expected_share_class_divergence_funds(
+    path: str | Path | None,
+) -> set[str]:
+    """fund_ids whose 台账-vs-PDF NAV divergence is *expected*, per the
+    client-owned `share_class_expectations.csv` reference file.
+
+    These funds report NAV against different share classes / bases in
+    the 台账 (authoritative) vs the manager PDF (net-of-fee C-class vs
+    product-level gross, etc.). A divergence on them is reclassified
+    `share_class_net_vs_gross_nav` (expected behavior) rather than
+    `nav_mismatch` (data-quality defect).
+
+    The CSV is client reference data and is NOT committed here — the
+    caller passes its path explicitly (the `fund_codes_reference`
+    pattern). Returns an empty set when `path` is None or absent, so
+    callers without the reference degrade to the un-partitioned
+    behavior.
+    """
+    if path is None:
+        return set()
+    ref = Path(path)
+    if not ref.exists():
+        return set()
+    df = pd.read_csv(ref, dtype=str)
+    if "fund_id" not in df.columns or "expected_divergence" not in df.columns:
+        return set()
+    truthy = {"true", "1", "yes", "y", "t"}
+    mask = df["expected_divergence"].fillna("").str.strip().str.lower().isin(truthy)
+    return set(df.loc[mask, "fund_id"].dropna().str.strip())
+
+
 # ---------------------------------------------------------------------------
 # Return-shape contract — TypedDicts for the three break categories and the
 # top-level `reconcile()` return. These are load-bearing for prism's typed-
@@ -386,6 +418,7 @@ def apply_data_quality_flags(
     reconcile_result: dict,
     *,
     nav_mismatch_fund_ids: set[str] | None = None,
+    share_class_divergence_fund_ids: set[str] | None = None,
 ) -> dict:
     """Join reconcile output onto events.parquet + positions.parquet.
 
@@ -396,6 +429,14 @@ def apply_data_quality_flags(
     completeness.parquet's `nav_match=False` rows; the master_record
     standalone callsite passes None / empty (no cross-source NAV
     comparison available yet).
+
+    `share_class_divergence_fund_ids` is the subset of NAV-divergent
+    funds whose divergence is *expected* (台账 and PDF report different
+    share classes / NAV bases — see
+    `load_expected_share_class_divergence_funds`). The caller partitions
+    the `nav_match=False` set into this group (flagged
+    `share_class_net_vs_gross_nav`) and the genuine-mismatch remainder
+    (flagged `nav_mismatch`), so a fund appears in at most one set.
 
     Returns a dict of {table: count_non_clean} for the caller's logging.
     """
@@ -411,6 +452,7 @@ def apply_data_quality_flags(
         r["fund_id"] for r in reconcile_result.get("drip_gap_rows", []) if r.get("fund_id")
     }
     nav_mismatch_funds: set[str] = nav_mismatch_fund_ids or set()
+    share_class_funds: set[str] = share_class_divergence_fund_ids or set()
 
     # --- events.parquet ---
     events_path = canonical_dir / "events.parquet"
@@ -421,6 +463,8 @@ def apply_data_quality_flags(
 
         def _flag_event(row) -> str:
             candidates: list[str] = []
+            if row.get("fund_id") in share_class_funds:
+                candidates.append("share_class_net_vs_gross_nav")
             if row.get("fund_id") in nav_mismatch_funds:
                 candidates.append("nav_mismatch")
             if row.get("confidence") == "reconcile_fail":
@@ -449,6 +493,8 @@ def apply_data_quality_flags(
                 if hasattr(row.get("as_of"), "isoformat")
                 else str(row.get("as_of"))
             )
+            if row.get("fund_id") in share_class_funds:
+                candidates.append("share_class_net_vs_gross_nav")
             if row.get("fund_id") in nav_mismatch_funds:
                 candidates.append("nav_mismatch")
             if (row.get("lot_id"), as_of_str) in unit_issue_lots:
