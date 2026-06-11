@@ -8,14 +8,14 @@ from pathlib import Path
 
 import pytest
 
-from vector_flow_connect.pdf.canonical import (
+from vector_flow_connect.manager_reports.canonical import (
     EVENT_COLUMNS,
     EXTRACTOR_NAME,
     EXTRACTOR_VERSION,
     OBSERVATION_COLUMNS,
     SCHEMA_VERSION,
 )
-from vector_flow_connect.pdf.mapping import payload_to_canonical
+from vector_flow_connect.manager_reports.mapping import payload_to_canonical
 
 FIXTURE = Path(__file__).parent / "fixtures" / "ruiyuan_2026_04_30_payload.json"
 

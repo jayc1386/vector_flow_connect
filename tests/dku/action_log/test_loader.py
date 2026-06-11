@@ -4,12 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from vector_flow_connect.action_log import (
+from vector_flow_connect.dku.action_log import (
     ActionLogSchemaError,
     load_action_log,
 )
 
-FIXTURE = Path(__file__).parent.parent / "fixtures" / "action_log" / "synthetic_action_log.csv"
+FIXTURE = (
+    Path(__file__).parent.parent.parent / "fixtures" / "action_log" / "synthetic_action_log.csv"
+)
 
 
 def test_load_synthetic_fixture_round_trip() -> None:

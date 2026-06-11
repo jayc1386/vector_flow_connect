@@ -6,8 +6,8 @@ from datetime import date, datetime, timezone
 
 import pytest
 
-from vector_flow_connect.master_record import notes_parser as np
-from vector_flow_connect.master_record.canonical import lot_id
+from vector_flow_connect.dku.master_record import notes_parser as np
+from vector_flow_connect.dku.master_record.canonical import lot_id
 
 LOT_CTX = {
     "lot_id": lot_id("fnd_test", date(2024, 1, 15), 100_000.0),

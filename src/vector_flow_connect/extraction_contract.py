@@ -1,6 +1,13 @@
-"""Canonical schema + deterministic ID hashing for master-record events.
+"""Shared dkup-canonical extraction contract.
 
-Pure-Python; no I/O. Tested via tests/extraction/test_canonical.py.
+Owns the canonical parquet column lists + deterministic ID hashers used
+by every extractor that emits the dkup-canonical shapes — today the
+`dku.master_record` workbook extractor and the `manager_reports` PDF
+extractor. Hoisted out of `master_record.canonical` in v0.13.0 so
+top-level generic modules don't depend on a client subpackage;
+`dku.master_record.canonical` re-exports this surface unchanged.
+
+Pure-Python; no I/O beyond `file_sha256`.
 """
 
 from __future__ import annotations
@@ -9,16 +16,6 @@ import hashlib
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Literal
-
-EXTRACTOR_VERSION = "1"
-EXTRACTOR_NAME = "dku_master_record"
-SCHEMA_VERSION = "dku-master-record-v1"
-SOURCE_ID = "dku_master_record_v1"
-
-EventType = Literal["subscription", "redemption", "dividend", "perf_fee"]
-Confidence = Literal["clean", "fuzzy", "reconcile_fail"]
-CodeConfidence = Literal["confirmed", "tentative"]
 
 EVENT_COLUMNS: list[str] = [
     "event_id",
@@ -100,25 +97,6 @@ POSITION_COLUMNS: list[str] = [
     "asset_class",
     "holding_days",
     "data_quality_flag",
-    "notes_raw",
-    "source_artifact",
-    "source_artifact_hash",
-    "source_locator",
-    "source_id",
-    "extractor_name",
-    "extractor_version",
-    "schema_version",
-    "extracted_at",
-]
-
-OBSERVATION_COLUMNS: list[str] = [
-    "observation_type",
-    "fund_id",
-    "fund_code",
-    "code_confidence",
-    "source_fund_string",
-    "as_of",
-    "value",
     "notes_raw",
     "source_artifact",
     "source_artifact_hash",

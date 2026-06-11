@@ -1,20 +1,23 @@
-"""Canonical helpers for the PDF extractor.
+"""Canonical helpers for the manager-reports PDF extractor.
 
 Re-exports the source-agnostic ID/dataclass helpers from
-`vector_flow_connect.master_record.canonical`, which OWNS the
-shared dkup-canonical column lists + deterministic ID hashers used
-by both the PDF extractor and the workbook extractor. Plan 0038's
-`_inherited_canonical.py` shim was retired by plan 0039 when
-master_record graduated to vfc.
+`vector_flow_connect.extraction_contract`, which OWNS the shared
+dkup-canonical column lists + deterministic ID hashers used by both
+this extractor and the `dku.master_record` workbook extractor
+(hoisted there in v0.13.0 so this top-level module doesn't depend on
+a client subpackage).
 
 Defines its own `SCHEMA_VERSION` / `SOURCE_ID` — a separate version
 axis from master_record so each source's re-extracts don't churn the
-other's provenance.
+other's provenance. The `dku_pdf*` values are the DKU-deployment
+defaults, retained verbatim for DB provenance continuity (prism's
+`lookups.sources` row keys on them); parameterizing them away is
+deferred until a second consumer exists.
 """
 
 from __future__ import annotations
 
-from vector_flow_connect.master_record.canonical import (  # noqa: F401
+from vector_flow_connect.extraction_contract import (  # noqa: F401
     EVENT_COLUMNS,
     FUND_COLUMNS,
     LOT_COLUMNS,

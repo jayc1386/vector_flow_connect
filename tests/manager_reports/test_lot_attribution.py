@@ -7,7 +7,7 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from vector_flow_connect.pdf.lot_attribution import (
+from vector_flow_connect.manager_reports.lot_attribution import (
     _allocate,
     _open_lots_at,
     pro_rata_split,

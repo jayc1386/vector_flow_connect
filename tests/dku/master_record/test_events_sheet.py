@@ -1,4 +1,4 @@
-"""Unit tests for `vector_flow_connect.master_record.events_sheet`.
+"""Unit tests for `vector_flow_connect.dku.master_record.events_sheet`.
 
 Builds small in-memory `openpyxl.Workbook` fixtures inline rather than
 loading binary `.xlsx` files. Covers the 6-column 事件流水 shape, the
@@ -13,8 +13,8 @@ from datetime import date, datetime, timezone
 import openpyxl
 import pytest
 
-from vector_flow_connect.master_record.canonical import SourceContext
-from vector_flow_connect.master_record.events_sheet import (
+from vector_flow_connect.dku.master_record.canonical import SourceContext
+from vector_flow_connect.dku.master_record.events_sheet import (
     DEFAULT_SHEET_NAME,
     events_sheet_present,
     parse_events_sheet,

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from vector_flow_connect.pdf.multifund import detect_fund_pages
+from vector_flow_connect.manager_reports.multifund import detect_fund_pages
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 JIUYANG_MONTHLY = (

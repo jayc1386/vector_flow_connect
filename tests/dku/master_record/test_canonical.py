@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from vector_flow_connect.master_record.canonical import (
+from vector_flow_connect.dku.master_record.canonical import (
     EVENT_COLUMNS,
     LOT_COLUMNS,
     empty_event,

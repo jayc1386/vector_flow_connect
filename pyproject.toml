@@ -79,18 +79,18 @@ ignore = [
 # (parser logic matches the exact characters AMAC emits).
 "src/vector_flow_connect/amac/*" = ["RUF001", "RUF002", "RUF003"]
 "tests/amac/*" = ["RUF001", "RUF002", "RUF003"]
-# v0.5.0 — the PDF subpackage's prompts + parser logic match exact
-# Chinese characters in 私募 fund-manager monthly PDFs; same
-# load-bearing-fullwidth-char reasoning as AMAC.
-"src/vector_flow_connect/pdf/*" = ["RUF001", "RUF002", "RUF003"]
-"tests/pdf/*" = ["RUF001", "RUF002", "RUF003"]
-# v0.6.0 — the master_record subpackage parses DKU's Chinese workbook
-# (snapshot sheets, notes columns, the proposed 事件流水 events log);
+# v0.5.0 — the manager_reports (né pdf) subpackage's prompts + parser
+# logic match exact Chinese characters in 私募 fund-manager monthly
+# PDFs; same load-bearing-fullwidth-char reasoning as AMAC.
+"src/vector_flow_connect/manager_reports/*" = ["RUF001", "RUF002", "RUF003"]
+"tests/manager_reports/*" = ["RUF001", "RUF002", "RUF003"]
+# v0.6.0 — the dku/master_record subpackage parses DKU's Chinese
+# workbook (snapshot sheets, notes columns, the 事件流水 events log);
 # Chinese characters in sheet titles, header matchers, event-type
 # labels, and notes regex patterns are load-bearing. Same reasoning
-# as AMAC + PDF.
-"src/vector_flow_connect/master_record/*" = ["RUF001", "RUF002", "RUF003"]
-"tests/master_record/*" = ["RUF001", "RUF002", "RUF003"]
+# as AMAC + manager_reports.
+"src/vector_flow_connect/dku/master_record/*" = ["RUF001", "RUF002", "RUF003"]
+"tests/dku/master_record/*" = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -128,7 +128,7 @@ reportOptionalMemberAccess = "warning"
 # spirit as the AMAC overrides — matches `PRISM_HANDOFF.md §8` "Don't
 # refactor during the move."
 [[tool.pyright.executionEnvironments]]
-root = "src/vector_flow_connect/pdf"
+root = "src/vector_flow_connect/manager_reports"
 reportAttributeAccessIssue = "warning"
 reportArgumentType = "warning"
 reportCallIssue = "warning"
@@ -138,7 +138,7 @@ reportOptionalOperand = "warning"
 reportMissingTypeStubs = "none"
 
 [[tool.pyright.executionEnvironments]]
-root = "tests/pdf"
+root = "tests/manager_reports"
 reportAttributeAccessIssue = "warning"
 reportArgumentType = "warning"
 reportCallIssue = "warning"
@@ -152,7 +152,7 @@ reportMissingTypeStubs = "none"
 # cell iteration, DataFrame column-assignment, etc.). Same
 # behavior-verified-by-tests reasoning as AMAC + PDF.
 [[tool.pyright.executionEnvironments]]
-root = "src/vector_flow_connect/master_record"
+root = "src/vector_flow_connect/dku/master_record"
 reportAttributeAccessIssue = "warning"
 reportArgumentType = "warning"
 reportCallIssue = "warning"
@@ -163,7 +163,7 @@ reportOptionalMemberAccess = "warning"
 reportMissingTypeStubs = "none"
 
 [[tool.pyright.executionEnvironments]]
-root = "tests/master_record"
+root = "tests/dku/master_record"
 reportAttributeAccessIssue = "warning"
 reportArgumentType = "warning"
 reportCallIssue = "warning"

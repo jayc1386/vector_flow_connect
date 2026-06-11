@@ -116,7 +116,8 @@ def build_completeness(
             else:
                 # Match against master_record if ANY of the PDF NAVs aligns.
                 # Pick the closest as the canonical comparison value; surface
-                # its share_class for the DKU conversation.
+                # its share_class so the operator can chase divergence with
+                # the client.
                 chosen = min(nav_pdf_list, key=lambda vsc: abs(vsc[0] - nav_mr))
                 nav_pdf_chosen, nav_pdf_share_class = chosen
                 nav_match = abs(nav_pdf_chosen - nav_mr) <= _NAV_MATCH_TOLERANCE

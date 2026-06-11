@@ -18,10 +18,12 @@ from pathlib import Path
 import openpyxl
 import pytest
 
-from vector_flow_connect.master_record import extract
-from vector_flow_connect.master_record.events_sheet import DEFAULT_SHEET_NAME
+from vector_flow_connect.dku.master_record import extract
+from vector_flow_connect.dku.master_record.events_sheet import DEFAULT_SHEET_NAME
 
-FIXTURE = Path(__file__).parent.parent / "fixtures" / "master_record" / "synthetic_workbook.xlsx"
+FIXTURE = (
+    Path(__file__).parent.parent.parent / "fixtures" / "master_record" / "synthetic_workbook.xlsx"
+)
 
 
 @pytest.fixture

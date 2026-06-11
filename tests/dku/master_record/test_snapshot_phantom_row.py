@@ -16,8 +16,8 @@ from datetime import date, datetime
 
 import openpyxl
 
-from vector_flow_connect.master_record.canonical import SourceContext, fund_id_stub
-from vector_flow_connect.master_record.snapshot import parse_sheet
+from vector_flow_connect.dku.master_record.canonical import SourceContext, fund_id_stub
+from vector_flow_connect.dku.master_record.snapshot import parse_sheet
 
 
 def _build_sheet() -> openpyxl.worksheet.worksheet.Worksheet:

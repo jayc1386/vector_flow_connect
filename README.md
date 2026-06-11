@@ -7,17 +7,30 @@ Python package — does shape coercion only, no storage opinions.
 ## What's here
 
 ```
-src/vector_flow_connect/alpaca/
-├── _base.py        # BarFetcher / OptionsFetcher / CorpActionsFetcher Protocols
-├── bars.py         # AlpacaBarFetcher + FetchedBar
-├── options.py      # AlpacaOptionsFetcher + fetch_chain_bars primitive
-├── corp_actions.py # AlpacaCorpActionsFetcher (v0.2.0 declared_date sidecar)
-├── occ.py          # OCC symbol parse/generate, Friday + strike-band enumeration
-└── settings.py     # AlpacaCredentials + AlpacaTradingCredentials (vendor-neutral)
+src/vector_flow_connect/
+├── alpaca/             # Alpaca market-data + trading-API fetchers (bars,
+│                       # options, corp_actions w/ declared_date sidecar,
+│                       # positions, OCC helpers, vendor-neutral credentials)
+├── polygon/            # Polygon ("Massive") second source: corp_actions
+│                       # (/v3/reference dividends+splits), daily aggs,
+│                       # throttled REST client w/ next_url drain
+├── amac/               # AMAC private-fund public-registry scraper
+│                       # (Playwright bulk + incremental crawl)
+├── manager_reports/    # LLM-vision extractor for 私募 fund-manager
+│                       # monthly PDF reports (né `pdf`, renamed v0.13.0)
+├── extraction_contract.py  # shared dkup-canonical parquet columns +
+│                       # deterministic ID hashers (hoisted v0.13.0)
+└── dku/                # client-artifact parsers for DKU
+    ├── master_record/  # 留本 workbook extractor (marks side)
+    └── action_log/     # 交易流水台账 CSV loader (events side)
 ```
 
-Layout is flat for v0. Restructures to `vendors/alpaca/` once a second
-vendor (polygon, IEX) lands.
+**Placement rule** (v0.13.0): a top-level subpackage is a generic
+capability against a vendor API or a public/industry-standard artifact
+class; a `<client>/` subpackage parses that client's OWN operational
+artifacts. A module earns top level only once client specifics are
+parameterized away (reference data passed in by path — the
+`fund_codes_reference` pattern — never committed here).
 
 ## Boundary
 

@@ -2,13 +2,15 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from vector_flow_connect.action_log import (
+from vector_flow_connect.dku.action_log import (
     ActionLogEvent,
     load_action_log,
     validate_events,
 )
 
-FIXTURE = Path(__file__).parent.parent / "fixtures" / "action_log" / "synthetic_action_log.csv"
+FIXTURE = (
+    Path(__file__).parent.parent.parent / "fixtures" / "action_log" / "synthetic_action_log.csv"
+)
 
 
 def _event(**overrides: object) -> ActionLogEvent:

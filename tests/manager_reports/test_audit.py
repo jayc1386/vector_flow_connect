@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from vector_flow_connect.pdf.audit import (
+from vector_flow_connect.manager_reports.audit import (
     NumericDiscrepancy,
     audit_numeric_fields,
 )
