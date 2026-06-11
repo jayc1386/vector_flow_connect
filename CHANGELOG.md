@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.0] — 2026-06-11
+
+New `vector_flow_connect.dku.returns_calc` subpackage for prism plan
+0062 (DKU 可投-level analytics).
+
+### Added
+
+- **`dku.returns_calc`**: extractor for the 追溯调整至2022 ledger
+  shared by DKU's 收益计算 workbooks (04 留本 / 05 可投, `scope`
+  param) — DKU's own unitization series (总资产市值 / 总份额 / 净值)
+  plus per-row `row_kind` classification (predicates ported from dkup
+  `backfill_action_log.py`) and precomputed `units_delta` for
+  mint-event detection. Emits `ledger_series_{scope}.parquet` +
+  per-scope manifest/issues. Only the ledger sheet is opened (broken
+  sibling sheets can't reach the parser). Deposit sheets deliberately
+  not parsed in v1 (cash-sleeve recipe descoped — 现金产品 留本/非留本
+  attribution is manual per DKU).
+
+## [0.13.0] — 2026-06-11
+
+Namespace restructure (prism plan 0061). Pure relocation plus the
+share_class_expectations port.
+
+### Changed
+
+- `master_record` + `action_log` → `vector_flow_connect.dku.*`;
+  `pdf` → `manager_reports` (China-allocator-generic capability;
+  "pdf" named the input format). Placement rule codified in README +
+  `dku/__init__.py`.
+- Shared dkup-canonical column lists + ID hashers hoisted to
+  top-level `extraction_contract.py`; `dku.master_record.canonical`
+  re-exports unchanged.
+
+### Added
+
+- `dku.master_record.reconcile.load_expected_share_class_divergence_funds`
+  (explicit-path loader; client CSV never committed here) +
+  `share_class_divergence_fund_ids` in `apply_data_quality_flags`;
+  `share_class_net_vs_gross_nav` joins the flag enum at rank 1
+  (annotates, never masks).
+
 ## [0.12.0] — 2026-06-10
 
 New `vector_flow_connect.action_log` subpackage for prism plan 0059

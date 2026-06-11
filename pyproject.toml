@@ -1,6 +1,6 @@
 [project]
 name = "vector-flow-connect"
-version = "0.13.0"
+version = "0.14.0"
 description = "Shared vendor-API connectors (shape coercion only) for prism + quant_hive"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -91,6 +91,11 @@ ignore = [
 # as AMAC + manager_reports.
 "src/vector_flow_connect/dku/master_record/*" = ["RUF001", "RUF002", "RUF003"]
 "tests/dku/master_record/*" = ["RUF001", "RUF002", "RUF003"]
+# v0.14.0 — the dku/returns_calc subpackage matches exact Chinese
+# ledger marks/keywords (标记 values, 捐赠/授权/赎回 content cues);
+# same load-bearing-fullwidth-char reasoning.
+"src/vector_flow_connect/dku/returns_calc/*" = ["RUF001", "RUF002", "RUF003"]
+"tests/dku/returns_calc/*" = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -164,6 +169,30 @@ reportMissingTypeStubs = "none"
 
 [[tool.pyright.executionEnvironments]]
 root = "tests/dku/master_record"
+reportAttributeAccessIssue = "warning"
+reportArgumentType = "warning"
+reportCallIssue = "warning"
+reportReturnType = "warning"
+reportOperatorIssue = "warning"
+reportOptionalOperand = "warning"
+reportOptionalMemberAccess = "warning"
+reportMissingTypeStubs = "none"
+
+# v0.14.0 — dku/returns_calc leans on pandas + openpyxl like
+# master_record; same loose-stub relaxations.
+[[tool.pyright.executionEnvironments]]
+root = "src/vector_flow_connect/dku/returns_calc"
+reportAttributeAccessIssue = "warning"
+reportArgumentType = "warning"
+reportCallIssue = "warning"
+reportReturnType = "warning"
+reportOperatorIssue = "warning"
+reportOptionalOperand = "warning"
+reportOptionalMemberAccess = "warning"
+reportMissingTypeStubs = "none"
+
+[[tool.pyright.executionEnvironments]]
+root = "tests/dku/returns_calc"
 reportAttributeAccessIssue = "warning"
 reportArgumentType = "warning"
 reportCallIssue = "warning"
