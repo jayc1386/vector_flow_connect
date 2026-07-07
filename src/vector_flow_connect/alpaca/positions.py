@@ -59,7 +59,9 @@ class AlpacaPositionsFetcher:
     def __init__(self, *, api_key: str, api_secret: str, paper: bool = True) -> None:
         from alpaca.trading.client import TradingClient
 
-        self._client: Any = TradingClient(api_key, api_secret, paper=paper)
+        from vector_flow_connect.alpaca._session import disable_env_proxies
+
+        self._client: Any = disable_env_proxies(TradingClient(api_key, api_secret, paper=paper))
 
     @classmethod
     def from_credentials(cls, credentials: AlpacaTradingCredentials) -> AlpacaPositionsFetcher:

@@ -56,7 +56,13 @@ class PolygonRestClient:
     ) -> None:
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
-        self._http = http_client if http_client is not None else httpx.Client(timeout=timeout)
+        # trust_env=False: vendor traffic must not ride operator proxy
+        # env vars leaking into tmux-launched workers (qh relay 0067).
+        self._http = (
+            http_client
+            if http_client is not None
+            else httpx.Client(timeout=timeout, trust_env=False)
+        )
         self._min_interval = min_request_interval_secs
         self._max_retries = max_retries
         self._clock = clock

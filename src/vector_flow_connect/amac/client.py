@@ -28,8 +28,11 @@ class AMACClient:
         user_agent: str = _DEFAULT_USER_AGENT,
         sleep_between_requests: float = 0.25,
     ) -> None:
+        # trust_env=False: AMAC (China registry) must go direct, never
+        # through the operator's proxy tunnel (qh relay 0067 class).
         self._http = httpx.Client(
             timeout=timeout,
+            trust_env=False,
             headers={
                 "User-Agent": user_agent,
                 "Accept": "application/json, text/html;q=0.9",

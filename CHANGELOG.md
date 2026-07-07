@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.2] — 2026-07-07
+
+Vendor HTTP ignores env proxies (prism proxy-leak plan; qh relay
+0067). Server-global `HTTPS_PROXY` (the operator's Anthropic tunnel)
+leaks into tmux-launched workers; vendor market-data/registry traffic
+must go direct.
+
+### Changed
+
+- **Alpaca fetchers** (`bars` / `options` / `positions` /
+  `corp_actions` incl. the announcements-sidecar `TradingClient`):
+  every alpaca-py client's `requests.Session` is flipped to
+  `trust_env=False` at construction via the new
+  `alpaca._session.disable_env_proxies` helper. alpaca-py (>=0.31)
+  offers no injection point, so this reaches into the private
+  `_session` attribute — deliberately unguarded so an SDK upgrade
+  that renames it fails loudly.
+- **`PolygonRestClient`**: default-constructed `httpx.Client` gains
+  `trust_env=False`. Injected `http_client=` (tests) untouched.
+- **`AMACClient`**: same `trust_env=False` (China registry must never
+  ride the tunnel).
+- Untouched by design: `manager_reports` Anthropic SDK usage (the
+  tunnel exists FOR Anthropic traffic) and the AMAC Playwright
+  `BrowserClient` (different mechanism — Chromium launch proxy args;
+  env-inheritance unverified, known follow-up).
+
 ## [0.14.1] — 2026-06-11
 
 `dku.action_log` alignment with ACTION_LOG_SPEC 2026-06-11b (prism

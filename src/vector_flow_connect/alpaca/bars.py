@@ -40,7 +40,9 @@ class AlpacaBarFetcher:
     def __init__(self, *, api_key: str, api_secret: str, feed: str) -> None:
         from alpaca.data.historical import StockHistoricalDataClient
 
-        self._client = StockHistoricalDataClient(api_key, api_secret)
+        from vector_flow_connect.alpaca._session import disable_env_proxies
+
+        self._client = disable_env_proxies(StockHistoricalDataClient(api_key, api_secret))
         self._feed = feed
 
     @classmethod

@@ -109,13 +109,15 @@ class AlpacaCorpActionsFetcher:
     ) -> None:
         from alpaca.data.historical.corporate_actions import CorporateActionsClient
 
-        self._client = CorporateActionsClient(api_key, api_secret)
+        from vector_flow_connect.alpaca._session import disable_env_proxies
+
+        self._client = disable_env_proxies(CorporateActionsClient(api_key, api_secret))
         self._trading_client: Any | None = None
         if trading_api_key and trading_api_secret:
             from alpaca.trading.client import TradingClient
 
-            self._trading_client = TradingClient(
-                trading_api_key, trading_api_secret, paper=trading_paper
+            self._trading_client = disable_env_proxies(
+                TradingClient(trading_api_key, trading_api_secret, paper=trading_paper)
             )
 
     @classmethod
