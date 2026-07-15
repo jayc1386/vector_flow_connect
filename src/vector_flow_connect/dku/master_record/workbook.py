@@ -36,8 +36,8 @@ from .events_sheet import (
     events_sheet_present,
     parse_events_sheet,
 )
+from .snapshot import _find_title_date, _parse_sheet_date, resolve_as_of, scan_fund_strings
 from .snapshot import parse_sheet as parse_snapshot
-from .snapshot import scan_fund_strings
 
 SNAPSHOT_RE = re.compile(r"^\d{8}$")
 
@@ -94,33 +94,42 @@ def extract(
     sheet_classification: dict[str, str] = {s: classify_sheet(s) for s in wb.sheetnames}
 
     # --- Pass 1: scan every snapshot's fund-string column, build the
-    # canonical-identity resolver. Cheap (one column per sheet).
+    # canonical-identity resolver, and capture each sheet's (title,
+    # tab) date pair so as_of can be resolved collision-aware BEFORE
+    # any per-sheet parse (a lone sheet can't see a colliding twin).
     all_fund_strings: set[str] = set()
+    snapshot_dates: dict[str, tuple] = {}
     for sheet_name, kind in sheet_classification.items():
         if kind != "snapshot":
             continue
         ws = wb[sheet_name]
         for s in scan_fund_strings(ws):
             all_fund_strings.add(s)
+        snapshot_dates[sheet_name] = (_find_title_date(ws), _parse_sheet_date(sheet_name))
 
     resolver = build_resolver(all_fund_strings)
+    as_of_map, as_of_issues = resolve_as_of(snapshot_dates)
 
     # --- Pass 2: full snapshot parse, with the resolver wired in.
     events: list[dict] = []
     positions: list[dict] = []
     observations: list[dict] = []
     asset_summary: list[dict] = []
-    issues: list[dict] = []
+    issues: list[dict] = list(as_of_issues)
     annualized_result: dict | None = None
 
     for sheet_name, kind in sheet_classification.items():
         if kind == "snapshot":
+            as_of = as_of_map.get(sheet_name)
+            if as_of is None:
+                continue  # resolve_as_of already emitted no_as_of_date
             ws = wb[sheet_name]
             result = parse_snapshot(
                 ws,
                 sheet_name=sheet_name,
                 ctx=ctx,
                 resolve_fund_id=resolver.resolve,
+                as_of_override=as_of,
             )
             events.extend(result["events"])
             positions.extend(result["positions"])

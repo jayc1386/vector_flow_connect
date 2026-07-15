@@ -144,6 +144,95 @@ def _find_title_date(ws: Worksheet) -> date | None:
     return None
 
 
+def _parse_sheet_date(sheet_name: str) -> date | None:
+    """The date encoded in an 8-digit snapshot tab name (`YYYYMMDD`)."""
+    if not re.fullmatch(r"\d{8}", sheet_name):
+        return None
+    try:
+        return date(int(sheet_name[:4]), int(sheet_name[4:6]), int(sheet_name[6:8]))
+    except ValueError:
+        return None
+
+
+def resolve_as_of(
+    sheet_dates: dict[str, tuple[date | None, date | None]],
+) -> tuple[dict[str, date | None], list[dict]]:
+    """Resolve every snapshot sheet's as_of, disambiguating collisions.
+
+    Input: ``{sheet_name: (title_date, sheet_date)}``.
+
+    The title-cell date is the workbook's stated valuation date, so it
+    is preferred as the as_of. But a stale/mis-copied title cell can name
+    a date that ALSO belongs to another sheet — observed with tab
+    ``20210208`` titled 截止02月18日, which collides with the real
+    ``20210218`` sheet (and ``20221104`` vs ``20221118``). Left
+    unresolved these two sheets share one as_of, and a downstream
+    per-``(as_of, security)`` aggregation SUMS them → doubled holdings.
+
+    Resolution: when >1 sheet resolves to the same date, the sheet
+    whose TAB name equals that date keeps it; the others fall back to
+    their own tab date (they are distinct real snapshots — a pre- vs
+    post-holiday valuation — one just has a wrong title cell). Emits
+    ``title_date_mismatch`` (benign relabel, title != tab) and
+    ``as_of_collision`` (the dangerous contended case) issues.
+
+    A fallback could in principle re-collide with a third sheet; that
+    residual is left flagged rather than chased (unobserved in real
+    data, and a downstream cross-sheet aggregation guard is the second
+    line of defence).
+    """
+    issues: list[dict] = []
+    candidate: dict[str, date | None] = {}
+    for name, (title_date, sheet_date) in sheet_dates.items():
+        candidate[name] = title_date or sheet_date
+        if title_date and sheet_date and title_date != sheet_date:
+            issues.append(
+                {
+                    "sheet": name,
+                    "locator": f"{name}:title",
+                    "kind": "title_date_mismatch",
+                    "detail": f"title={title_date} sheet_name={sheet_date}",
+                }
+            )
+        if candidate[name] is None:
+            issues.append(
+                {
+                    "sheet": name,
+                    "locator": f"{name}:title",
+                    "kind": "no_as_of_date",
+                    "detail": "neither title nor sheet name parsed",
+                }
+            )
+
+    by_date: dict[date, list[str]] = {}
+    for name, d in candidate.items():
+        if d is not None:
+            by_date.setdefault(d, []).append(name)
+
+    resolved = dict(candidate)
+    for d, names in sorted(by_date.items()):
+        if len(names) < 2:
+            continue
+        for name in names:
+            _title, sheet_date = sheet_dates[name]
+            if sheet_date == d:
+                continue  # native to d — keeps it
+            if sheet_date is not None:
+                resolved[name] = sheet_date
+        issues.append(
+            {
+                "sheet": ",".join(sorted(names)),
+                "locator": f"{d.isoformat()}:as_of",
+                "kind": "as_of_collision",
+                "detail": (
+                    f"{len(names)} sheets resolved to {d}; "
+                    + ", ".join(f"{n}->{resolved[n]}" for n in sorted(names))
+                ),
+            }
+        )
+    return resolved, issues
+
+
 def _find_header_row(ws: Worksheet) -> tuple[int, dict[int, str]]:
     """Find the row that contains `持有标的` and return (row_idx, col_idx → canonical_name).
 
@@ -208,6 +297,7 @@ def parse_sheet(
     sheet_name: str,
     ctx: SourceContext,
     resolve_fund_id: Callable[[str], str] = fund_id_stub,
+    as_of_override: date | None = None,
 ) -> dict[str, list[dict]]:
     """Parse one snapshot sheet.
 
@@ -225,21 +315,29 @@ def parse_sheet(
     observations: list[dict] = []
     asset_summary: list[dict] = []
 
-    title_date = _find_title_date(ws)
-    # cross-check against sheet name
-    sheet_date: date | None = None
-    if re.fullmatch(r"\d{8}", sheet_name):
-        sheet_date = date(int(sheet_name[:4]), int(sheet_name[4:6]), int(sheet_name[6:8]))
-    as_of = title_date or sheet_date
-    if title_date and sheet_date and title_date != sheet_date:
-        issues.append(
-            {
-                "sheet": sheet_name,
-                "locator": f"{sheet_name}:title",
-                "kind": "title_date_mismatch",
-                "detail": f"title={title_date} sheet_name={sheet_date}",
-            }
-        )
+    if as_of_override is not None:
+        # Workbook mode: the orchestrator resolved as_of across ALL
+        # sheets (collision-aware, `resolve_as_of`) and owns the
+        # title/sheet-date issues. Trust its verdict verbatim.
+        as_of = as_of_override
+    else:
+        # Standalone single-sheet mode: resolve locally. Prefer the
+        # title-cell date; cross-check against the tab name. NOTE: a
+        # collision between two sheets' title dates is only detectable
+        # with cross-sheet knowledge — use `resolve_as_of` (via
+        # `workbook.extract`) for that; this local path cannot.
+        title_date = _find_title_date(ws)
+        as_of = title_date or _parse_sheet_date(sheet_name)
+        sheet_date = _parse_sheet_date(sheet_name)
+        if title_date and sheet_date and title_date != sheet_date:
+            issues.append(
+                {
+                    "sheet": sheet_name,
+                    "locator": f"{sheet_name}:title",
+                    "kind": "title_date_mismatch",
+                    "detail": f"title={title_date} sheet_name={sheet_date}",
+                }
+            )
     if as_of is None:
         issues.append(
             {

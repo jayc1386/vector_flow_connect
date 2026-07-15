@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.0] — 2026-07-15
+
+Collision-aware snapshot `as_of` resolution for `dku.master_record`.
+Two `YYYYMMDD` snapshot sheets could resolve to the same valuation
+date when a stale title cell named another sheet's date (e.g. tab
+`20210208` with a title cell reading 截止02月18日 collides with the
+real `20210218` sheet). Downstream per-`(as_of, security)` aggregation
+then summed the two sheets, doubling that date's positions.
+
+### Changed
+
+- **`snapshot.resolve_as_of(sheet_dates)`** — new pure resolver run by
+  `workbook.extract` across ALL snapshot sheets before parsing. Prefers
+  the title-cell date (the workbook's stated valuation date), but when
+  >1 sheet resolves to the same date the tab-native sheet keeps it and
+  the others fall back to their own tab date (they are distinct real
+  snapshots — one with a wrong title cell). `parse_sheet` gains an
+  `as_of_override` param; in workbook mode it trusts the resolver's
+  verdict, so title/tab date-issue emission moves to the resolver.
+
+### Added
+
+- **`as_of_collision` issue** — emitted whenever two sheets contend for
+  one date (the case that doubles positions). `title_date_mismatch`
+  (benign relabel) is unchanged. Both surface in `issues.json`.
+
 ## [0.14.2] — 2026-07-07
 
 Vendor HTTP ignores env proxies (prism proxy-leak plan; qh relay
