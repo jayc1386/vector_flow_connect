@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.0] — 2026-07-18
+
+Alpaca news connector (`/v1beta1/news`, Benzinga-sourced).
+
+### Added
+
+- **`alpaca.news`** — `AlpacaNewsFetcher` + frozen `FetchedNewsArticle`
+  model + `NewsFetcher` Protocol. Historical drain over `[start, end]`,
+  oldest-first, always `limit=None` (the endpoint pages at 50 items and
+  a non-None limit silently truncates the drain — same trap as
+  corporate actions, fixed there in v0.10.0). Optional symbol filter is
+  chunked at 100 symbols/request (URL-length safety) with id-level
+  dedup across chunks; the article's full `symbols` list is preserved
+  regardless of the filter, so per-article symbol counts stay honest.
+  `include_content` opt-in (HTML body; empty normalizes to `None`).
+  Env-proxy hygiene via the shared `_session.disable_env_proxies`
+  (v0.14.2). Note for point-in-time consumers: the vendor documents no
+  immutability guarantee for `created_at`; carry `updated_at` alongside
+  and treat `updated_at > created_at` as a revision marker.
+
 ## [0.15.0] — 2026-07-15
 
 Collision-aware snapshot `as_of` resolution for `dku.master_record`.

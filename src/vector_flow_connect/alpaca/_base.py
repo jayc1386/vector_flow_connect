@@ -12,12 +12,13 @@ package root (`vector_flow_connect/_base.py`).
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from vector_flow_connect.alpaca.bars import FetchedBar
     from vector_flow_connect.alpaca.corp_actions import FetchedCorpAction
+    from vector_flow_connect.alpaca.news import FetchedNewsArticle
     from vector_flow_connect.alpaca.options import (
         FetchedOptionBar,
         FetchedOptionContract,
@@ -101,6 +102,36 @@ class CorpActionsFetcher(Protocol):
         - Return empty list on zero events; never raise on "no data."
         - Raise on auth / rate-limit / network failure so the caller
           can mark the corresponding ingest request as `failed`.
+        """
+        ...
+
+
+class NewsFetcher(Protocol):
+    """Pure read-side contract: drain news articles over a time window.
+
+    Concrete implementations:
+    - `AlpacaNewsFetcher` — wraps alpaca-py's `NewsClient`
+      (`/v1beta1/news`, Benzinga-sourced).
+    - Test-only fakes — return canned articles.
+    """
+
+    def get_news(
+        self,
+        *,
+        start: datetime,
+        end: datetime,
+        symbols: list[str] | None = None,
+        include_content: bool = False,
+    ) -> list[FetchedNewsArticle]:
+        """Return every article in `[start, end]` (inclusive), oldest
+        first, de-duplicated on the vendor article id.
+
+        Implementations should:
+        - Preserve the article's full `symbols` list even when the
+          query filters by symbols.
+        - Return empty list on zero articles; never raise on "no data."
+        - Raise on auth / rate-limit / network failure so the caller
+          can mark the corresponding ingest as `failed`.
         """
         ...
 
