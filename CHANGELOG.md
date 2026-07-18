@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.1] — 2026-07-18
+
+### Fixed
+
+- **`alpaca.news` rate-limit resilience** — the news client's retry
+  budget is raised to 20 attempts x 5s (alpaca-py's 3 x 3s default
+  cannot outlast a per-minute rate-limit window reset, so multi-hour
+  backfill drains died mid-run on a plain 429). Set via the private
+  `RESTClient` attributes because `NewsClient.__init__` exposes no
+  retry params; breaks loudly if an alpaca-py upgrade renames them.
+
 ## [0.16.0] — 2026-07-18
 
 Alpaca news connector (`/v1beta1/news`, Benzinga-sourced).

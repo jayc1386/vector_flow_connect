@@ -1746,7 +1746,7 @@ wheels = [
 
 [[package]]
 name = "vector-flow-connect"
-version = "0.16.0"
+version = "0.16.1"
 source = { editable = "." }
 dependencies = [
     { name = "alpaca-py" },

@@ -70,6 +70,15 @@ class AlpacaNewsFetcher:
         from vector_flow_connect.alpaca._session import disable_env_proxies
 
         self._client = disable_env_proxies(NewsClient(api_key, api_secret))
+        # v0.16.1: long backfill drains sustain the per-minute rate
+        # limit, and alpaca-py's defaults (3 retries x 3s) can't ride
+        # out a 60s window reset — a multi-hour drain then dies mid-run
+        # on a plain 429. `NewsClient.__init__` doesn't expose
+        # RESTClient's retry params, so set the private attributes
+        # post-construction (same deliberate-loud-breakage posture as
+        # `_session.disable_env_proxies`): 20 x 5s ≥ one full window.
+        self._client._retry = 20
+        self._client._retry_wait = 5
 
     @classmethod
     def from_credentials(cls, credentials: AlpacaCredentials) -> AlpacaNewsFetcher:
