@@ -16,6 +16,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from vector_flow_connect.alpaca.assets import FetchedAsset
     from vector_flow_connect.alpaca.bars import FetchedBar
     from vector_flow_connect.alpaca.corp_actions import FetchedCorpAction
     from vector_flow_connect.alpaca.news import FetchedNewsArticle
@@ -132,6 +133,26 @@ class NewsFetcher(Protocol):
         - Return empty list on zero articles; never raise on "no data."
         - Raise on auth / rate-limit / network failure so the caller
           can mark the corresponding ingest as `failed`.
+        """
+        ...
+
+
+class AssetsFetcher(Protocol):
+    """Read-side contract: fetch the vendor's tradable-asset directory.
+
+    Concrete implementations:
+    - `AlpacaAssetsFetcher` — wraps alpaca-py's `TradingClient`.
+    - Test-only fakes — return canned assets.
+
+    The directory carries each symbol's human-readable `name`, which
+    consumers write to canonical `securities.name`.
+    """
+
+    def get_assets(self) -> list[FetchedAsset]:
+        """Return the full asset directory (not paginated).
+
+        Raise on auth / rate-limit / network failure so the caller can
+        mark the corresponding ingest as `failed`.
         """
         ...
 

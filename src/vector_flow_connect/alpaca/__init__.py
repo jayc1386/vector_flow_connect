@@ -5,12 +5,14 @@ vendor (polygon, IEX) lands.
 """
 
 from vector_flow_connect.alpaca._base import (
+    AssetsFetcher,
     BarFetcher,
     CorpActionsFetcher,
     NewsFetcher,
     OptionsFetcher,
     PositionsFetcher,
 )
+from vector_flow_connect.alpaca.assets import AlpacaAssetsFetcher, FetchedAsset
 from vector_flow_connect.alpaca.bars import AlpacaBarFetcher, FetchedBar
 from vector_flow_connect.alpaca.corp_actions import (
     AlpacaCorpActionsFetcher,
@@ -40,6 +42,7 @@ from vector_flow_connect.alpaca.settings import (
 )
 
 __all__ = [
+    "AlpacaAssetsFetcher",
     "AlpacaBarFetcher",
     "AlpacaCorpActionsFetcher",
     "AlpacaCredentials",
@@ -47,9 +50,11 @@ __all__ = [
     "AlpacaOptionsFetcher",
     "AlpacaPositionsFetcher",
     "AlpacaTradingCredentials",
+    "AssetsFetcher",
     "BarFetcher",
     "ChainBarsResult",
     "CorpActionsFetcher",
+    "FetchedAsset",
     "FetchedBar",
     "FetchedCorpAction",
     "FetchedNewsArticle",

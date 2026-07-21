@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.17.0] — 2026-07-21
+
+Alpaca asset-reference connector (`TradingClient.get_all_assets`).
+
+### Added
+
+- **`alpaca.assets`** — `AlpacaAssetsFetcher` + frozen `FetchedAsset`
+  model + `AssetsFetcher` Protocol. Fetches Alpaca's tradable-asset
+  directory in one call (not paginated), exposing each symbol's
+  human-readable `name` (e.g. `AAPL` → `"Apple Inc. Common Stock"`)
+  alongside `asset_class` / `exchange` / `tradable` / `status`.
+  Consumers match on `symbol` to populate canonical `securities.name`.
+  Same trading-credentials + `paper` flag + `trust_env=False` env-proxy
+  hygiene as the positions fetcher.
+
 ## [0.16.1] — 2026-07-18
 
 ### Fixed
