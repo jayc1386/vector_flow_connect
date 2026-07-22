@@ -104,6 +104,24 @@ class DripGapRow(TypedDict):
     gap: float  # cumulative − attested
 
 
+class IncompleteUnitLot(TypedDict):
+    """A lot whose per-event `units_delta` stream carries a NaN — an
+    amount-only / cost-only subscription whose unit count the source has
+    not supplied, or an interim event with unknown units. Its cumulative
+    Σ(units_delta) baseline is missing a term, so absolute per-snapshot
+    unit reconciliation is *undefined* for the lot: comparing observed
+    units against the partial sum manufactures a false mismatch at every
+    snapshot. Such lots are excluded from `unit_issues` and surfaced here
+    instead. Self-heals when the source supplies the missing units_delta
+    (the NaN clears → the lot re-enters absolute reconciliation)."""
+
+    lot_id: str
+    fund_id: str | None
+    first_incomplete_event_date: str  # ISO date of the earliest NaN-units event
+    nan_event_count: int
+    positions_skipped: int  # unit-bearing snapshots not reconciled for this lot
+
+
 class ReconcileResult(TypedDict):
     """Top-level dict returned by `reconcile()`. The list-typed fields are
     the inputs prism's `record_data_quality_finding` typed tool maps over;
@@ -111,6 +129,7 @@ class ReconcileResult(TypedDict):
 
     cashflow_issues: list[CashflowIssue]
     unit_issues: list[UnitIssue]
+    incomplete_unit_lots: list[IncompleteUnitLot]
     drip_gap_rows: list[DripGapRow]
     dividend_fails: int
     report_path: str
@@ -226,19 +245,68 @@ def reconcile(
 
     # ---------- 2. Per-lot unit-count reconciliation ----------
     unit_issues: list[dict] = []
+    incomplete_unit_lots: list[dict] = []
     if not events_df.empty and not positions_df.empty:
-        unit_events = events_df.dropna(subset=["units_delta"]).copy()
-        unit_events["event_date"] = pd.to_datetime(unit_events["event_date"])
+        lot_events_all = events_df.dropna(subset=["lot_id"]).copy()
+        lot_events_all["event_date"] = pd.to_datetime(lot_events_all["event_date"])
         # build a lot_id → fund_id lookup
         lot_to_fund = (
-            events_df.dropna(subset=["lot_id"])
-            .drop_duplicates("lot_id")[["lot_id", "fund_id"]]
+            lot_events_all.drop_duplicates("lot_id")[["lot_id", "fund_id"]]
             .set_index("lot_id")["fund_id"]
             .to_dict()
         )
 
-        for lot_id_val, lot_events in unit_events.groupby("lot_id"):
+        # A cash distribution (`dividend` paid in cash) is unit-neutral by
+        # construction: it moves cash and mints no units, so an absent
+        # units_delta means *zero*, not "unknown". Normalize those NaNs to 0
+        # up front so they neither corrupt the cumulative sum nor trip the
+        # incomplete-lot gate below — only a NaN on a UNIT-BEARING event (an
+        # unpriced subscription/redemption, a reinvested dividend, a
+        # unit-settled fee) is a genuine gap. (Without this, a lot that
+        # reconciled cleanly and merely paid a cash dividend would be
+        # misclassified `unit_history_incomplete`.)
+        unit_neutral = (lot_events_all["event_type"] == "dividend") & (
+            lot_events_all["payout_form"] == "cash"
+        )
+        lot_events_all.loc[unit_neutral, "units_delta"] = lot_events_all.loc[
+            unit_neutral, "units_delta"
+        ].fillna(0.0)
+
+        # A lot whose event stream carries a NaN units_delta on a unit-bearing
+        # event cannot be absolute-unit-reconciled: the cumulative Σ(units_delta)
+        # baseline is missing a term (a cost-only subscription the source hasn't
+        # priced, or an interim event with unknown units). The prior code dropped
+        # NaN events before summing, so `expected` silently omitted them and the
+        # lot mismatched at every snapshot against an unanchored partial sum.
+        # Exclude such lots from unit_issues and surface them as
+        # incomplete-history lots instead of emitting false mismatches.
+        incomplete_lot_ids: set = set()
+        for lot_id_val, lot_ev in lot_events_all.groupby("lot_id"):
             if lot_id_val is None:
+                continue
+            nan_mask = lot_ev["units_delta"].isna()
+            if not nan_mask.any():
+                continue
+            incomplete_lot_ids.add(lot_id_val)
+            lot_pos = positions_df[positions_df["lot_id"] == lot_id_val]
+            positions_skipped = (
+                int(lot_pos["units"].notna().sum()) if "units" in lot_pos else len(lot_pos)
+            )
+            first_nan_date = lot_ev.loc[nan_mask, "event_date"].min()
+            incomplete_unit_lots.append(
+                {
+                    "lot_id": lot_id_val,
+                    "fund_id": lot_to_fund.get(lot_id_val),
+                    "first_incomplete_event_date": first_nan_date.date().isoformat(),
+                    "nan_event_count": int(nan_mask.sum()),
+                    "positions_skipped": positions_skipped,
+                }
+            )
+
+        unit_events = lot_events_all.dropna(subset=["units_delta"])
+
+        for lot_id_val, lot_events in unit_events.groupby("lot_id"):
+            if lot_id_val is None or lot_id_val in incomplete_lot_ids:
                 continue
             lot_events = lot_events.sort_values("event_date")
             lot_positions = positions_df[positions_df["lot_id"] == lot_id_val].copy()
@@ -302,6 +370,25 @@ def reconcile(
                 f"| {issue['lot_id']} | {issue['as_of']} | "
                 f"{issue['expected']:,.2f} | {issue['observed']:,.2f} | "
                 f"{issue['diff']:,.2f} |"
+            )
+    lines.append("")
+
+    # Lots excluded from the reconciliation above because their units_delta
+    # history is incomplete (a NaN opening/interim event → unanchored baseline).
+    lines.append("## 2a. Lots with incomplete unit history (excluded from §2)")
+    lines.append(
+        f"- Excluded lots: {len(incomplete_unit_lots)} "
+        f"(source has not supplied opening/interim units — absolute reconciliation undefined)"
+    )
+    if incomplete_unit_lots:
+        lines.append("")
+        lines.append("| lot_id | fund_id | first_incomplete_event | nan_events | positions_skipped |")
+        lines.append("|---|---|---|---|---|")
+        for r in incomplete_unit_lots:
+            lines.append(
+                f"| {r['lot_id']} | {r['fund_id']} | "
+                f"{r['first_incomplete_event_date']} | {r['nan_event_count']} | "
+                f"{r['positions_skipped']} |"
             )
     lines.append("")
 
@@ -407,6 +494,7 @@ def reconcile(
     return {
         "cashflow_issues": cashflow_issues,
         "unit_issues": unit_issues,
+        "incomplete_unit_lots": incomplete_unit_lots,
         "drip_gap_rows": drip_gap_rows,
         "dividend_fails": len(dividend_fails),
         "report_path": str(out_path),
@@ -447,6 +535,11 @@ def apply_data_quality_flags(
         (issue.get("lot_id"), issue.get("as_of"))
         for issue in reconcile_result.get("unit_issues", [])
         if issue.get("lot_id") is not None
+    }
+    incomplete_unit_lot_ids: set[str] = {
+        r.get("lot_id")
+        for r in reconcile_result.get("incomplete_unit_lots", [])
+        if r.get("lot_id") is not None
     }
     drip_gap_funds: set[str] = {
         r["fund_id"] for r in reconcile_result.get("drip_gap_rows", []) if r.get("fund_id")
@@ -499,6 +592,8 @@ def apply_data_quality_flags(
                 candidates.append("nav_mismatch")
             if (row.get("lot_id"), as_of_str) in unit_issue_lots:
                 candidates.append("unit_mismatch")
+            if row.get("lot_id") in incomplete_unit_lot_ids:
+                candidates.append("unit_history_incomplete")
             if row.get("fund_id") in drip_gap_funds:
                 candidates.append("drip_gap")
             return resolve_data_quality_flag(*candidates) if candidates else "clean"

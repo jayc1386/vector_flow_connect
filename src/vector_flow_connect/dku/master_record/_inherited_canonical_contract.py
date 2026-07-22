@@ -41,6 +41,15 @@ DataQualityFlag = Literal[
     "cash_share_mismatch",
     "dividend_fail",
     "drip_gap",
+    # A lot whose units_delta event stream carries a NaN (cost-only/amount-only
+    # subscription the source hasn't priced, or an interim event with unknown
+    # units): its cumulative Σ(units_delta) baseline is missing a term, so
+    # absolute per-snapshot unit reconciliation is undefined. Flagged (not
+    # silently dropped) so the completeness gap is visible; self-heals when the
+    # source supplies the missing units. Distinct from `unit_mismatch` (which
+    # asserts the numbers reconciled and disagreed) — this asserts they cannot
+    # be reconciled yet. See `reconcile.IncompleteUnitLot`.
+    "unit_history_incomplete",
     "confidence_fuzzy",
 ]
 DATA_QUALITY_FLAG_VALUES: frozenset[str] = frozenset(DataQualityFlag.__args__)  # type: ignore[attr-defined]
@@ -61,9 +70,14 @@ _DATA_QUALITY_PRECEDENCE: dict[str, int] = {
     "confidence_fuzzy": 4,
     "dividend_fail": 5,
     "drip_gap": 6,
-    "cash_share_mismatch": 7,
-    "unit_mismatch": 8,
-    "nav_mismatch": 9,
+    # A completeness gap the reviewer must act on (get opening units), ranked
+    # above lineage/expected flags. Mutually exclusive with `unit_mismatch` by
+    # construction (an incomplete lot is excluded from unit_issues), so the two
+    # never co-occur on a row; ordered below the hard mismatches regardless.
+    "unit_history_incomplete": 7,
+    "cash_share_mismatch": 8,
+    "unit_mismatch": 9,
+    "nav_mismatch": 10,
 }
 
 

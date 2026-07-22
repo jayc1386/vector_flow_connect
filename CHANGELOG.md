@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.18.0] — 2026-07-21
+
+Reconcile: exclude lots with an incomplete `units_delta` history from
+absolute unit reconciliation, surfacing them honestly instead of
+emitting false mismatches.
+
+### Added
+
+- **`reconcile.IncompleteUnitLot`** + `ReconcileResult.incomplete_unit_lots`
+  — a lot whose per-event `units_delta` stream carries a NaN (a
+  cost-only / amount-only subscription the source has not priced, or an
+  interim event with unknown units) has an unanchored cumulative baseline:
+  `Σ(units_delta)` is missing a term. The prior code dropped NaN events
+  before summing, so `expected` silently omitted them and the lot
+  mismatched at *every* snapshot against a partial sum. Such lots are now
+  excluded from `unit_issues` and reported in `incomplete_unit_lots`
+  (with `first_incomplete_event_date` / `nan_event_count` /
+  `positions_skipped`) plus a `## 2a` report section. Self-heals when the
+  source supplies the missing units (the NaN clears → the lot re-enters
+  absolute reconciliation).
+- **`unit_history_incomplete`** data-quality flag — `apply_data_quality_flags`
+  tags an incomplete lot's positions with it (ranked above lineage/expected
+  flags, below the hard mismatches; mutually exclusive with `unit_mismatch`
+  by construction). Distinct from `unit_mismatch`: that asserts the numbers
+  reconciled and disagreed; this asserts they cannot be reconciled yet.
+
 ## [0.17.0] — 2026-07-21
 
 Alpaca asset-reference connector (`TradingClient.get_all_assets`).
